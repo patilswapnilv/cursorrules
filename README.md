@@ -121,7 +121,7 @@ The installer supports the following options:
 - `--yes` or `-y`: Automatically answer yes to all prompts
 - `--destination=DIR`: Install to a custom directory (default: .cursor/rules)
 - `--debug`: Enable detailed debug output for troubleshooting installation issues
-- `--ignore-files <opt>`: Control installation of .cursorignore files (yes, no, ask), default's to yes
+- `--ignore-files <opt>`: Control installation of .cursorignore files (yes, no, ask), defaults to yes
 - `--help` or `-h`: Show help message
 
 ### .cursorignore Files
@@ -132,7 +132,7 @@ The installer can automatically add recommended `.cursorignore` and `.cursorinde
 - **Reduce noise** in AI responses by focusing only on relevant project files
 - **Prevent unnecessary context** from third-party code being included in AI prompts
 
-The `.cursorignore` file ensures files are not indexed by Cursior and they are not read by Cursor or sent to the models for processing. This is a good setting for files that may contain secrets or other information you'd prefer to keep private. The `.cursorindexingignore` file is just for indexing and is there mainly for performance reasons.
+The `.cursorignore` file ensures files are not indexed by Cursor and they are not read by Cursor or sent to the models for processing. This is a good setting for files that may contain secrets or other information you'd prefer to keep private. The `.cursorindexingignore` file is just for indexing and is there mainly for performance reasons.
 
 By default, the installer will add these files (controlled by the `--ignore-files` option). You can:
 - Set to `yes` (default): Always install ignore files
@@ -239,7 +239,7 @@ If you prefer to install manually:
 2. Copy the rules to your project:
    ```bash
    mkdir -p /path/to/your/project/.cursor/rules
-   cp -r cursor-rules/.cursor/rules/* /path/to/your/project/.cursor/rules/
+   cp -r cursorrules/.cursor/rules/* /path/to/your/project/.cursor/rules/
    ```
 
 ---
@@ -252,17 +252,18 @@ Each rule is written in `.mdc` format and structured to enforce best practices i
 
 | Rule File | Applies To | Key Focus Areas |
 |-----------|------------|-----------------|
-| `typescript-node.mdc` | TypeScript, Node.js, NestJS, Express, Fastify | Type safety, async patterns, validation |
-| `sql-prisma.mdc` | SQL, Prisma, TimescaleDB, pgvector, Neo4j | Query safety, ORM patterns, migrations |
-| `python-data.mdc` | Python 3.11+, data pipelines, ML/AI | Type hints, logging, exception handling |
-| `infra-devops.mdc` | Docker, K8s, Terraform, Helm | Security, configuration, secrets |
-| `frontend-react.mdc` | React, Next.js, UI libraries | Components, state, styling, types |
-| `messaging-queue-patterns.mdc` | BullMQ, RabbitMQ, Redis | Idempotency, retries, error handling |
-| `wordpress/php-wordpress-standards.mdc` | WordPress, PHP 7.4+ | Security, hooks, performance, best practices |
-| `wordpress/php-wordpress-best-practices.mdc` | WordPress, PHP 7.4+ | PHP & WordPress Development Standards and Best Practices |
-| `wordpress/php-wordpress-development-standards.mdc` | WordPress, PHP 7.4+ | Standards for PHP and WordPress development |
-| `wordpress/wordpress-file-permissions.mdc` | WordPress | WordPress file permissions security standards |
-| `database/wordpress-database-standards.mdc` | WordPress | Database schema changes, migrations, and query optimisation for WordPress |
+| [`backend/typescript-node.mdc`](.cursor/rules/backend/typescript-node.mdc) | TypeScript, Node.js, NestJS, Express, Fastify | Type safety, async patterns, validation |
+| [`database/sql-prisma.mdc`](.cursor/rules/database/sql-prisma.mdc) | SQL, Prisma, TimescaleDB, pgvector, Neo4j | Query safety, ORM patterns, migrations |
+| [`backend/python-data.mdc`](.cursor/rules/backend/python-data.mdc) | Python 3.11+, data pipelines, ML/AI | Type hints, logging, exception handling |
+| [`backend/data-pipeline-safety.mdc`](.cursor/rules/backend/data-pipeline-safety.mdc) | Python, ETL, data pipelines | Data pipeline safety, error handling, idempotency |
+| [`devops/infra-devops.mdc`](.cursor/rules/devops/infra-devops.mdc) | Docker, K8s, Terraform, Helm | Security, configuration, secrets |
+| [`frontend/frontend-react.mdc`](.cursor/rules/frontend/frontend-react.mdc) | React, Next.js, UI libraries | Components, state, styling, types |
+| [`development/messaging-queue-patterns.mdc`](.cursor/rules/development/messaging-queue-patterns.mdc) | BullMQ, RabbitMQ, Redis | Idempotency, retries, error handling |
+| [`wordpress/php-wordpress-standards.mdc`](.cursor/rules/wordpress/php-wordpress-standards.mdc) | WordPress, PHP 7.4+ | Security, hooks, performance, best practices |
+| [`wordpress/php-wordpress-best-practices.mdc`](.cursor/rules/wordpress/php-wordpress-best-practices.mdc) | WordPress, PHP 7.4+ | PHP & WordPress Development Standards and Best Practices |
+| [`wordpress/php-wordpress-development-standards.mdc`](.cursor/rules/wordpress/php-wordpress-development-standards.mdc) | WordPress, PHP 7.4+ | Standards for PHP and WordPress development |
+| [`wordpress/wordpress-file-permissions.mdc`](.cursor/rules/wordpress/wordpress-file-permissions.mdc) | WordPress | WordPress file permissions security standards |
+| [`database/wordpress-database-standards.mdc`](.cursor/rules/database/wordpress-database-standards.mdc) | WordPress | Database schema changes, migrations, and query optimisation for WordPress |
 
 ### Core Rules
 | File Name | Purpose |
@@ -274,6 +275,10 @@ Each rule is written in `.mdc` format and structured to enforce best practices i
 | [`core/pull-request-changelist-instructions.mdc`](.cursor/rules/core/pull-request-changelist-instructions.mdc) | Guidelines for creating consistent pull request changelists in markdown format with proper code block formatting |
 | [`core/readme-maintenance-standards.mdc`](.cursor/rules/core/readme-maintenance-standards.mdc) | Ensures README documentation is comprehensive and up-to-date |
 | [`core/testing-guidelines.mdc`](.cursor/rules/core/testing-guidelines.mdc) | Ensures proper testing practices and separation between test and production code |
+| [`core/testing-data-pipelines.mdc`](.cursor/rules/core/testing-data-pipelines.mdc) | Data pipeline testing standards for ETL operations, data validation, and integration testing |
+| [`core/testing-infrastructure.mdc`](.cursor/rules/core/testing-infrastructure.mdc) | Infrastructure testing standards for Terraform, Kubernetes, and Docker configurations |
+| [`core/testing-python.mdc`](.cursor/rules/core/testing-python.mdc) | Python testing standards using pytest, unittest, and mocking patterns |
+| [`core/testing-typescript.mdc`](.cursor/rules/core/testing-typescript.mdc) | TypeScript/JavaScript testing standards using Jest, Vitest, and testing-library |
 
 ### Web Development Rules
 
@@ -296,12 +301,15 @@ Each rule is written in `.mdc` format and structured to enforce best practices i
 |-----------|---------|
 | [`drupal/php-drupal-best-practices.mdc`](.cursor/rules/drupal/php-drupal-best-practices.mdc) | PHP & Drupal Development Standards and Best Practices |
 | [`drupal/php-drupal-development-standards.mdc`](.cursor/rules/drupal/php-drupal-development-standards.mdc) | Standards for PHP and Drupal development |
+| [`drupal/php-memory-optimisation.mdc`](.cursor/rules/drupal/php-memory-optimisation.mdc) | PHP memory optimisation standards and actionable checks |
 | [`database/drupal-database-standards.mdc`](.cursor/rules/database/drupal-database-standards.mdc) | Database schema changes, migrations, and query optimisation |
 | [`drupal/drupal-file-permissions.mdc`](.cursor/rules/drupal/drupal-file-permissions.mdc) | Drupal file permissions security standards |
 | [`wordpress/php-wordpress-standards.mdc`](.cursor/rules/wordpress/php-wordpress-standards.mdc) | WordPress and PHP 7.4+ development standards for plugins, themes, hooks, security, performance, and WordPress coding standards |
 | [`backend/typescript-node.mdc`](.cursor/rules/backend/typescript-node.mdc) | TypeScript/Node.js 20.x+/NestJS/Express/Fastify standards for type safety, async/await, validation, and module boundaries |
 | [`database/sql-prisma.mdc`](.cursor/rules/database/sql-prisma.mdc) | SQL/Prisma/TimescaleDB/pgvector/Neo4j standards for database operations, migrations, and queries |
+| [`database/database-migration-safety.mdc`](.cursor/rules/database/database-migration-safety.mdc) | Database migration safety standards for zero-downtime deployments, rollback procedures, and data validation |
 | [`backend/python-data.mdc`](.cursor/rules/backend/python-data.mdc) | Python 3.11+ data pipeline/ML/ETL standards for type hints, logging, exception handling, and test coverage |
+| [`backend/data-pipeline-safety.mdc`](.cursor/rules/backend/data-pipeline-safety.mdc) | Data pipeline safety standards for ETL operations, error handling, data validation, and idempotency |
 | [`development/messaging-queue-patterns.mdc`](.cursor/rules/development/messaging-queue-patterns.mdc) | Job queue and message broker patterns for Redis/BullMQ/RabbitMQ with idempotency, retries, and error handling |
 
 #### Security Rules
@@ -360,6 +368,9 @@ Each rule is written in `.mdc` format and structured to enforce best practices i
 | [`development/project-definition-template.mdc`](.cursor/rules/development/project-definition-template.mdc) | Template for defining project context |
 | [`development/tests-documentation-maintenance.mdc`](.cursor/rules/development/tests-documentation-maintenance.mdc) | Require tests for new functionality and enforce documentation updates |
 | [`development/third-party-integration.mdc`](.cursor/rules/development/third-party-integration.mdc) | Standards for integrating external services |
+| [`development/observability-standards.mdc`](.cursor/rules/development/observability-standards.mdc) | Observability standards for logging, metrics, tracing, and monitoring in polyglot systems |
+| [`development/confluence-editing-standards.mdc`](.cursor/rules/development/confluence-editing-standards.mdc) | Standards for editing Confluence documentation |
+| [`development/new-pull-request.mdc`](.cursor/rules/development/new-pull-request.mdc) | Use this rule when requested to review a pull request |
 | [`development/behat-steps.mdc`](.cursor/rules/development/behat-steps.mdc) | Documentation for available Behat testing steps in Drupal projects |
 | [`development/behat-ai-guide.mdc`](.cursor/rules/development/behat-ai-guide.mdc) | AI assistant guide for writing Behat tests using drevops/behat-steps package |
 
@@ -418,16 +429,17 @@ Cursor **supports subdirectories** within `.cursor/rules/` for better organizati
 │   ├── frontend-react.mdc
 │   ├── react-patterns.mdc
 │   └── tailwind-standards.mdc
-└── cursor-rules.mdc
+└── core/
+    └── cursor-rules.mdc
 ```
 
 **Key Points:**
 - ✅ **Auto-discovery works**: Cursor automatically discovers rules in subdirectories recursively
 - ✅ **Same functionality**: Rules in subdirectories work identically to rules in the root directory
+- ✅ **Installer support**: The installer now supports installing rules to subdirectories automatically
 - ⚠️ **Submodule awareness**: Cursor may discover rules in submodules/nested projects. Use `.cursorignore` to exclude specific directories if needed
-- ⚠️ **Installer limitation**: The current installer installs all rules to a flat structure. To use subdirectories, manually organize them after installation
 
-For more details, see [`.cursor/rules/cursor-rules.mdc`](.cursor/rules/cursor-rules.mdc).
+For more details, see [`.cursor/rules/core/cursor-rules.mdc`](.cursor/rules/core/cursor-rules.mdc).
 
 ---
 
