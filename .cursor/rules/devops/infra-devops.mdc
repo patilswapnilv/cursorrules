@@ -1,0 +1,255 @@
+---
+description: Infrastructure as Code standards for Docker, Kubernetes, Terraform, Helm, cloud provider manifests, and secrets management
+globs: Dockerfile, docker-compose.yml, *.yaml, *.yml, *.tf, *.tfvars, Chart.yaml, values.yaml, *.json
+alwaysApply: false
+tags:
+  - category:infrastructure
+  - category:deployment
+  - category:ci-cd
+  - category:configuration
+  - category:security
+---
+# Infrastructure & DevOps Standards
+
+Enforces best practices for Infrastructure as Code (IaC), including Docker, Kubernetes, Terraform, Helm charts, cloud provider configurations, and secrets management.
+
+<rule>
+name: infra_devops_standards
+description: Enforce infrastructure and DevOps best practices for containerization, orchestration, and IaC
+filters:
+  - type: file_extension
+    pattern: "\\.(dockerfile|yaml|yml|tf|tfvars|json)$"
+  - type: file_path
+    pattern: ".*(docker|k8s|kubernetes|terraform|helm|infra|deploy).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Docker Security
+      - pattern: "FROM\\s+.*:latest"
+        message: "Avoid using 'latest' tag. Pin specific versions for reproducibility and security."
+      
+      - pattern: "RUN\\s+.*curl.*\\|\\s*sh|RUN\\s+.*wget.*\\|\\s*sh"
+        message: "Never pipe remote scripts directly to shell. Download, verify, then execute."
+      
+      - pattern: "COPY\\s+.*\\.env|COPY\\s+.*secret"
+        message: "Never copy secrets or .env files into Docker images. Use secrets management or environment variables."
+      
+      # Kubernetes Security
+      - pattern: "securityContext:\\s*\\{\\s*\\}"
+        message: "Always set securityContext with non-root user, read-only filesystem where possible, and resource limits."
+      
+      - pattern: "imagePullPolicy:\\s*Always"
+        message: "Use 'IfNotPresent' or 'Never' for imagePullPolicy in production. 'Always' can cause unnecessary pulls."
+      
+      # Terraform Security
+      - pattern: "password\\s*=\\s*[\"'][^\"']+[\"']|secret\\s*=\\s*[\"'][^\"']+[\"']"
+        message: "Never hardcode secrets in Terraform files. Use variables, environment variables, or secret management systems."
+      
+      - pattern: "provider\\s+\\w+\\s*\\{[^}]*\\}"
+        message: "Ensure provider configurations don't expose credentials. Use environment variables or credential files."
+
+  - type: suggest
+    message: |
+      **Infrastructure & DevOps Best Practices:**
+      
+      ### Docker Best Practices
+      ```dockerfile
+      # ✅ Good - Multi-stage build with pinned versions
+      FROM node:20.11.0-alpine AS builder
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm ci --only=production
+      
+      FROM node:20.11.0-alpine
+      RUN addgroup -g 1001 -S nodejs && \
+          adduser -S nodejs -u 1001
+      WORKDIR /app
+      COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+      COPY --chown=nodejs:nodejs . .
+      USER nodejs
+      EXPOSE 3000
+      CMD ["node", "server.js"]
+      ```
+      
+      ### Docker Compose
+      ```yaml
+      # ✅ Good - Proper service configuration
+      version: '3.8'
+      services:
+        app:
+          build:
+            context: .
+            dockerfile: Dockerfile
+          image: myapp:1.2.3
+          environment:
+            - NODE_ENV=production
+          secrets:
+            - db_password
+          deploy:
+            resources:
+              limits:
+                cpus: '1'
+                memory: 512M
+              reservations:
+                cpus: '0.5'
+                memory: 256M
+      
+      secrets:
+        db_password:
+          external: true
+      ```
+      
+      ### Kubernetes Manifests
+      ```yaml
+      # ✅ Good - Secure deployment
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: myapp
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: myapp
+        template:
+          metadata:
+            labels:
+              app: myapp
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1001
+              fsGroup: 1001
+            containers:
+            - name: app
+              image: myapp:1.2.3
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                  - ALL
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+              env:
+              - name: DATABASE_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: db-secret
+                    key: url
+      ```
+      
+      ### Terraform Best Practices
+      ```hcl
+      # ✅ Good - Modular, secure configuration
+      terraform {
+        required_version = ">= 1.5.0"
+        required_providers {
+          aws = {
+            source  = "hashicorp/aws"
+            version = "~> 5.0"
+          }
+        }
+      }
+      
+      provider "aws" {
+        region = var.aws_region
+        # Credentials from environment or AWS credentials file
+      }
+      
+      resource "aws_instance" "app" {
+        ami           = var.ami_id
+        instance_type = var.instance_type
+        
+        root_block_device {
+          encrypted = true
+        }
+        
+        tags = {
+          Name        = "myapp-${var.environment}"
+          Environment = var.environment
+          ManagedBy   = "Terraform"
+        }
+      }
+      
+      # Variables file (never commit secrets)
+      variable "db_password" {
+        description = "Database password"
+        type        = string
+        sensitive   = true
+      }
+      ```
+      
+      ### Helm Charts
+      ```yaml
+      # ✅ Good - values.yaml with defaults
+      replicaCount: 3
+      
+      image:
+        repository: myapp
+        tag: "1.2.3"
+        pullPolicy: IfNotPresent
+      
+      service:
+        type: ClusterIP
+        port: 80
+      
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      
+      # ✅ Good - Secret management
+      secrets:
+        database:
+          url: ""  # Set via --set or secrets manager
+          password: ""  # Set via --set or secrets manager
+      ```
+      
+      ### Secrets Management
+      - **Never commit secrets** to version control
+      - Use **environment variables** for local development
+      - Use **secret management systems** (AWS Secrets Manager, HashiCorp Vault, etc.) for production
+      - Use **Kubernetes Secrets** with proper RBAC
+      - Rotate secrets regularly
+      - Use **least privilege** access policies
+      
+      ### CI/CD Integration
+      ```yaml
+      # ✅ Good - GitHub Actions workflow
+      name: Deploy
+      on:
+        push:
+          branches: [main]
+      jobs:
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: us-east-1
+            - name: Terraform Apply
+              run: |
+                terraform init
+                terraform plan
+                terraform apply -auto-approve
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

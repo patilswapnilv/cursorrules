@@ -21,7 +21,7 @@ Standards for placing and organizing Cursor rule files in the repository, ensuri
 
 ## Rejections
 - Conditions:
-  - pattern `^(?!\\.\\/\\.cursor\\/rules\\/.*\\.mdc$)` – Cursor rule files (.mdc) must be placed in the .cursor/rules directory
+  - pattern `^(?!\\.\\/\\.cursor\\/rules\\/.*\\.mdc$)` – Cursor rule files (.mdc) must be placed in the .cursor/rules directory or its subdirectories
 
 ## Suggestions
 - Guidance:
@@ -35,9 +35,30 @@ Standards for placing and organizing Cursor rule files in the repository, ensuri
   ├── .cursor/
   │   └── rules/
   │       ├── your-rule-name.mdc
-  │       └── ...
+  │       ├── security/
+  │       │   ├── owasp-rule-1.mdc
+  │       │   └── ...
+  │       ├── database/
+  │       │   ├── sql-standards.mdc
+  │       │   └── ...
+  │       └── frontend/
+  │           ├── react-patterns.mdc
+  │           └── ...
   └── ...
   ```
+
+#### Subdirectory Support
+Cursor **supports organizing rules into subdirectories** within `.cursor/rules/`. This allows you to:
+- Organize rules by category (e.g., `security/`, `database/`, `frontend/`)
+- Maintain a cleaner structure for large rule sets
+- Group related rules together
+
+**Auto-Discovery:** Cursor automatically discovers and applies rules from subdirectories recursively. Rules in subdirectories work the same as rules in the root `.cursor/rules/` directory.
+
+**Important Considerations:**
+- **Submodules/Nested Projects:** Be aware that Cursor may auto-discover rules in submodules or nested project directories. If you have submodules with their own `.cursor/rules/` directories, those rules may be applied to the parent project. Use `.cursorignore` to exclude specific directories if needed.
+- **Always Apply Rules:** Rules with `alwaysApply: true` in subdirectories will be applied globally, just like rules in the root directory.
+- **Current Installer Limitation:** The current installer (`install.php`) installs all rules to a flat directory structure. If you want to use subdirectories, you'll need to manually organize them after installation or modify the installer.
 
 ### 2. Naming Conventions
 - Use **kebab-case** for filenames (e.g., `php-drupal-standards.mdc`)

@@ -1,0 +1,96 @@
+---
+description: Detect and prevent broken access control vulnerabilities in WordPress as defined in OWASP Top 10:2021-A01
+globs: *.php, functions.php
+alwaysApply: false
+---
+# WordPress Broken Access Control Security Standards (OWASP A01:2021)
+
+This rule enforces security best practices to prevent broken access control vulnerabilities in WordPress applications, as defined in OWASP Top 10:2021-A01.
+
+## Rule Details
+
+- **Name:** wordpress_broken_access_control
+
+- **Description:** Detect and prevent broken access control vulnerabilities in WordPress as defined in OWASP Top 10:2021-A01
+
+## Filters
+- file extension pattern: `\.(php)$`
+- file path pattern: `.*(wp-content|plugins|themes|functions).*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `add_action\s*\(['"]admin_init['"]|add_action\s*\(['"]wp_ajax['"]` – Admin actions should verify user capabilities. Add current_user_can() checks.
+    - Pattern 1: Missing capability checks in admin actions
+  - pattern `current_user_can\(['"]administrator['"]\)` – Avoid checking for role names. Use specific capabilities instead: current_user_can('manage_options').
+    - Pattern 2: Using role names instead of capabilities
+  - pattern `\$user_id\s*===?\s*1|\$user->ID\s*===?\s*1` – Avoid hardcoded checks against user ID 1. Use role-based permissions or proper capability checks.
+    - Pattern 3: Hard-coded user ID checks
+  - pattern `wp_update_post\(|wp_delete_post\(|wp_insert_post\(` – Post operations without prior capability check. Use current_user_can('edit_post', $post_id) before performing operations.
+    - Pattern 4: Missing capability check on post operations
+  - pattern `is_admin\(\)` – is_admin() checks if in admin area, not if user is admin. Use current_user_can() for permission checks.
+    - Pattern 5: Using is_admin() for permission checks
+  - pattern `function\s+[a-zA-Z0-9_]+\s*\([^{]*\)\s*\{[^}]*wp_update_user\(|wp_delete_user\(` – User modification functions lack explicit capability checking. Add current_user_can('edit_users') checks.
+    - Pattern 6: Missing capability checks in user operations
+  - pattern `\$wpdb->(insert|update|delete|replace)\([^)]*\)(?!.*prepare)` – Direct database operations without capability checks may expose unauthorized access. Verify user permissions first.
+    - Pattern 7: Direct database operations without access check
+  - pattern `add_rewrite_rule\(|flush_rewrite_rules\(` – Custom rewrite rules should verify user capabilities for protected endpoints.
+    - Pattern 8: Unprotected custom endpoints
+  - pattern `\$_SERVER\s*\[['"]REMOTE_ADDR['"]\]\s*===?\s*` – IP-based access control is insufficient. Use proper WordPress permission system instead.
+    - Pattern 9: Insecure access check by client IP
+  - pattern `wp_nonce_field\(|wp_create_nonce\(` – Using nonces without capability checks may allow unauthorized users to generate valid nonces.
+    - Pattern 10: Nonce usage without capability verification
+
+## Suggestions
+- Guidance:
+**WordPress Access Control Best Practices:**
+
+1. **Capability-Based Access Controls:**
+   - Always use current_user_can() with specific capabilities
+   - Use capability checks: 'edit_posts', 'manage_options', 'edit_users', etc.
+   - Avoid checking for role names ('administrator', 'editor')
+   - Implement custom capabilities for plugin-specific permissions
+
+2. **Post and Page Access Controls:**
+   - Always check current_user_can('edit_post', $post_id) before modifications
+   - Use current_user_can('delete_post', $post_id) for deletions
+   - Respect post status and visibility settings
+   - Check user ownership for author-specific operations
+
+3. **Admin Area Security:**
+   - Verify capabilities in all admin_init hooks
+   - Use check_admin_referer() for admin form submissions
+   - Implement proper nonce verification for all admin actions
+   - Never rely solely on is_admin() for permission checks
+
+4. **AJAX and REST API Security:**
+   - Verify capabilities for all AJAX handlers
+   - Use wp_verify_nonce() for AJAX requests
+   - Implement proper authentication for REST API endpoints
+   - Define specific capabilities for custom REST routes
+
+5. **User Management Security:**
+   - Check current_user_can('edit_users') before user modifications
+   - Verify current_user_can('delete_users') for user deletions
+   - Implement proper authorization for user role changes
+   - Never expose user data without proper checks
+
+## Validation Checks
+- Conditions:
+  - pattern `current_user_can\(['"][a-z_]+['"]\)` – Capability check is properly implemented.
+    - Check 1: Ensuring proper capability check implementation
+  - pattern `check_admin_referer\(|wp_verify_nonce\(` – Proper nonce verification for admin actions.
+    - Check 2: Proper nonce verification
+  - pattern `current_user_can\(['"]edit_post['"],\s*\$post_id\)` – Post operations are properly secured.
+    - Check 3: Properly secured post operations
+  - pattern `current_user_can\(['"]manage_options['"]\)` – Admin operations have proper capability checks.
+    - Check 4: Secure admin operations
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, access-control, permissions, owasp, language:php, framework:wordpress, category:security, subcategory:access-control, standard:owasp-top10, risk:a01-broken-access-control
+## References
+- https://owasp.org/Top10/A01_2021-Broken_Access_Control/
+- https://developer.wordpress.org/plugins/security/checking-user-capabilities-and-roles/
+- https://developer.wordpress.org/reference/functions/current_user_can/
+- https://developer.wordpress.org/plugins/security/nonces/

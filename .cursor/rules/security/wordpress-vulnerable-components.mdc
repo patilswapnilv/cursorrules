@@ -1,0 +1,100 @@
+---
+description: Detect and prevent vulnerabilities related to outdated or vulnerable components in WordPress as defined in OWASP Top 10:2021-A06
+globs: *.php, composer.json, package.json, style.css
+alwaysApply: false
+---
+# WordPress Vulnerable and Outdated Components Standards (OWASP A06:2021)
+
+This rule enforces security best practices to prevent vulnerabilities related to outdated or vulnerable components in WordPress applications, as defined in OWASP Top 10:2021-A06.
+
+## Rule Details
+
+- **Name:** wordpress_vulnerable_components
+
+- **Description:** Detect and prevent vulnerabilities related to outdated or vulnerable components in WordPress as defined in OWASP Top 10:2021-A06
+
+## Filters
+- file extension pattern: `\.(php|json|css)$`
+- file path pattern: `.*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `Version:\s*('|")[0-9]+\.[0-9]+(mdc:'|")|Requires at least:\s*('|")[^5].+('|")` – Potentially outdated WordPress version detected. Consider upgrading to the latest secure version of WordPress.
+    - Pattern 1: Outdated WordPress version declaration
+  - pattern `mysql_|split\(|ereg\(|eregi\(|create_function\(|each\(` – Deprecated or insecure PHP function detected. Use modern alternatives for better security.
+    - Pattern 2: Usage of deprecated functions
+  - pattern `jquery\.min\.js\?v=1\.|jquery-1\.|jquery-2\.|ckeditor/|tinymce/|angular\.js@1\.` – Potentially vulnerable JavaScript library version detected. Update to the latest secure version.
+    - Pattern 3: Known vulnerable libraries referenced
+  - pattern `<script\s+src=['"]http|<script\s+src=['"]//|<link\s+[^>]*href=['"]http` – External scripts or stylesheets without Subresource Integrity (SRI) checks detected. Add integrity and crossorigin attributes.
+    - Pattern 4: Direct inclusion of external scripts without SRI
+  - pattern `wp_enqueue_script\([^,]+,\s*['"][^'"]*(jquery|bootstrap|angular)[^'"]*['"](?![^)]*version)` – Potentially vulnerable or outdated library detected. Specify version numbers and keep updated.
+    - Pattern 5: Use of outdated libraries without version control
+  - pattern `"wordpress/[^"]+":\s*"(~|\^)?[0-9]\.[0-9]\.[0-9]"` – Hard-coded specific version detected in composer.json. Consider using version ranges to receive security updates.
+    - Pattern 6: Hard-coded versions in composer.json
+  - pattern `mysql_|split\(|ereg\(|eregi\(|create_function\(|each\(` – Deprecated or insecure PHP function detected. Use modern alternatives for better security.
+    - Pattern 7: Outdated or insecure PHP API usage
+  - pattern `Requires PHP:\s*('|")[^7].+('|")|Requires PHP:\s*('|")7\.[0-3]` – Ensure your plugin/theme requires PHP 7.4+ to prevent installation on unsupported PHP versions.
+    - Pattern 8: Outdated PHP version requirement
+  - pattern `composer\.json|package\.json` – Consider adding security advisories checking to detect known vulnerable packages.
+    - Pattern 9: Missing security advisories handling
+  - pattern `addslashes\(|stripslashes\(|magic_quotes` – Legacy text sanitization function detected. Use WordPress sanitization functions instead.
+    - Pattern 10: Direct usage of vulnerable sanitization functions
+
+## Suggestions
+- Guidance:
+**WordPress Component Security Best Practices:**
+
+1. **Update Management:**
+   - Keep WordPress core updated to the latest secure version
+   - Subscribe to WordPress Security Newsletter
+   - Implement a regular update schedule (monthly at minimum)
+   - Use security advisories checking in your development workflow
+   - Enable automatic updates for minor releases
+
+2. **Dependency Management:**
+   - Use Composer for managing PHP dependencies
+   - Specify version constraints that allow security updates
+   - Regularly run `composer update --with-dependencies`
+   - Use `composer outdated` to identify outdated packages
+   - Pin critical dependencies to specific versions only when necessary
+
+3. **API Usage:**
+   - Use modern WordPress APIs rather than deprecated functions
+   - Migrate away from jQuery to modern JavaScript where possible
+   - Implement Subresource Integrity (SRI) for external resources
+   - Update custom code to use current best practices
+   - Follow WordPress API deprecation policies
+
+4. **Security Monitoring:**
+   - Implement automated vulnerability scanning in CI/CD
+   - Use tools like WPScan or security plugins
+   - Monitor WordPress security advisories page
+   - Implement automated updates for non-critical dependencies
+   - Set up alerts for security issues in used components
+
+5. **Plugin & Theme Management:**
+   - Remove unused plugins and themes from your codebase
+   - Prefer well-maintained plugins with active development
+   - Implement proper version constraints in plugin headers
+   - Consider the security impact before adding new dependencies
+   - Document your dependency management practices
+
+## Validation Checks
+- Conditions:
+  - pattern `Requires at least:\s*["']5\.[0-9]+["']|Tested up to:\s*["'][5-9]\.[0-9]+["']` – Using proper WordPress version requirements.
+    - Check 1: Proper WordPress version requirement
+  - pattern `wp_enqueue_script\(|wp_enqueue_style\(|wp_register_script\(` – Using modern WordPress asset enqueuing instead of deprecated methods.
+    - Check 2: Use of modern APIs
+  - pattern `"require":\s*\{[^}]*"wordpress/core":\s*"[^"]+"` – Using proper version constraints in Composer.
+    - Check 3: Proper composer usage
+  - pattern `integrity=["'][a-zA-Z0-9\+\/=\-_]+["']\s+crossorigin=["']anonymous["']` – Properly implementing Subresource Integrity.
+    - Check 4: SRI implementation
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, dependencies, vulnerable-components, owasp, language:php, framework:wordpress, category:security, subcategory:dependencies, standard:owasp-top10, risk:a06-vulnerable-components
+## References
+- https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/
+- https://wordpress.org/support/article/updating-wordpress/
+- https://developer.wordpress.org/reference/functions/wp_enqueue_script/

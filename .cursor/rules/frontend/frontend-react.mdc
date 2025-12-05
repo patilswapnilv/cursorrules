@@ -1,0 +1,252 @@
+---
+description: React/Next.js/UI/data-visualization standards for component structure, state management, styling (CSS-in-JS/Tailwind), types, and prop validation
+globs: *.tsx, *.jsx, *.ts, *.js, next.config.js, tailwind.config.js
+alwaysApply: false
+tags:
+  - framework:react
+  - framework:nextjs
+  - category:style
+  - category:best-practice
+  - category:performance
+---
+# React & Next.js Frontend Standards
+
+Enforces best practices for React and Next.js development, including component structure, state management patterns, styling approaches (CSS-in-JS or Tailwind), TypeScript types, and prop validation.
+
+<rule>
+name: frontend_react_standards
+description: Enforce React and Next.js frontend development best practices
+filters:
+  - type: file_extension
+    pattern: "\\.(tsx|jsx|ts|js)$"
+  - type: file_path
+    pattern: ".*(components|pages|app|src|ui).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Component Structure
+      - pattern: "export\\s+default\\s+function\\s+\\w+\\(\\s*\\)"
+        message: "Prefer named exports for better tree-shaking and refactoring. Use default exports only for pages in Next.js."
+      
+      # Hooks Rules
+      - pattern: "useEffect\\([^,)]+\\)"
+        message: "useEffect must include dependency array. Use empty array [] for mount-only effects."
+      
+      - pattern: "useState\\([^)]*\\)(?!.*const\\s+\\[)"
+        message: "Always use array destructuring for useState: const [state, setState] = useState(initialValue)."
+      
+      # Type Safety
+      - pattern: "interface\\s+\\w+Props\\s*\\{[^}]*\\}"
+        message: "Props interfaces should be exported for reuse and testing. Consider using type instead of interface for props."
+      
+      # Performance
+      - pattern: "map\\([^)]*\\)\\s*=>\\s*\\("
+        message: "Always provide 'key' prop when rendering lists. Use stable, unique identifiers."
+      
+      # Next.js Specific
+      - pattern: "getServerSideProps|getStaticProps"
+        message: "In Next.js 13+ App Router, use Server Components and async components instead of getServerSideProps/getStaticProps."
+
+  - type: suggest
+    message: |
+      **React & Next.js Best Practices:**
+      
+      ### Component Structure
+      ```tsx
+      // ✅ Good - Named export with TypeScript
+      import { FC } from 'react';
+      
+      interface ButtonProps {
+        label: string;
+        onClick: () => void;
+        variant?: 'primary' | 'secondary';
+        disabled?: boolean;
+      }
+      
+      export const Button: FC<ButtonProps> = ({
+        label,
+        onClick,
+        variant = 'primary',
+        disabled = false,
+      }) => {
+        return (
+          <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`btn btn-${variant}`}
+          >
+            {label}
+          </button>
+        );
+      };
+      ```
+      
+      ### State Management
+      ```tsx
+      // ✅ Good - useState with proper typing
+      const [count, setCount] = useState<number>(0);
+      const [user, setUser] = useState<User | null>(null);
+      
+      // ✅ Good - useReducer for complex state
+      type State = { count: number; step: number };
+      type Action = { type: 'increment' } | { type: 'decrement' } | { type: 'reset' };
+      
+      const reducer = (state: State, action: Action): State => {
+        switch (action.type) {
+          case 'increment':
+            return { ...state, count: state.count + state.step };
+          case 'decrement':
+            return { ...state, count: state.count - state.step };
+          case 'reset':
+            return { ...state, count: 0 };
+        }
+      };
+      
+      const [state, dispatch] = useReducer(reducer, { count: 0, step: 1 });
+      ```
+      
+      ### Effects & Side Effects
+      ```tsx
+      // ✅ Good - useEffect with cleanup
+      useEffect(() => {
+        const subscription = subscribe();
+        return () => {
+          subscription.unsubscribe();
+        };
+      }, [dependencies]);
+      
+      // ✅ Good - Data fetching in Next.js App Router
+      async function UserProfile({ userId }: { userId: string }) {
+        const user = await fetchUser(userId);
+        return <div>{user.name}</div>;
+      }
+      ```
+      
+      ### Styling (Tailwind)
+      ```tsx
+      // ✅ Good - Tailwind with component variants
+      interface ButtonProps {
+        variant?: 'primary' | 'secondary' | 'danger';
+        size?: 'sm' | 'md' | 'lg';
+      }
+      
+      const buttonStyles = {
+        base: 'font-medium rounded-lg transition-colors',
+        variant: {
+          primary: 'bg-blue-600 text-white hover:bg-blue-700',
+          secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300',
+          danger: 'bg-red-600 text-white hover:bg-red-700',
+        },
+        size: {
+          sm: 'px-3 py-1.5 text-sm',
+          md: 'px-4 py-2 text-base',
+          lg: 'px-6 py-3 text-lg',
+        },
+      };
+      
+      export const Button: FC<ButtonProps> = ({
+        variant = 'primary',
+        size = 'md',
+        children,
+      }) => {
+        const className = cn(
+          buttonStyles.base,
+          buttonStyles.variant[variant],
+          buttonStyles.size[size]
+        );
+        return <button className={className}>{children}</button>;
+      };
+      ```
+      
+      ### Styling (CSS-in-JS - styled-components)
+      ```tsx
+      // ✅ Good - styled-components with TypeScript
+      import styled from 'styled-components';
+      
+      interface ButtonProps {
+        variant?: 'primary' | 'secondary';
+      }
+      
+      const StyledButton = styled.button<ButtonProps>`
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        transition: background-color 0.2s;
+        background-color: ${props =>
+          props.variant === 'primary' ? '#2563eb' : '#e5e7eb'};
+        color: ${props => (props.variant === 'primary' ? '#fff' : '#111')};
+        
+        &:hover {
+          background-color: ${props =>
+            props.variant === 'primary' ? '#1d4ed8' : '#d1d5db'};
+        }
+      `;
+      ```
+      
+      ### Next.js App Router (13+)
+      ```tsx
+      // ✅ Good - Server Component
+      // app/users/[id]/page.tsx
+      async function UserPage({ params }: { params: { id: string } }) {
+        const user = await fetchUser(params.id);
+        return (
+          <div>
+            <h1>{user.name}</h1>
+            <UserPosts userId={user.id} />
+          </div>
+        );
+      }
+      
+      // ✅ Good - Client Component when needed
+      'use client';
+      
+      import { useState } from 'react';
+      
+      export function UserPosts({ userId }: { userId: string }) {
+        const [posts, setPosts] = useState<Post[]>([]);
+        // Client-side logic
+        return <div>{/* ... */}</div>;
+      }
+      ```
+      
+      ### Data Visualization (D3, MapLibre)
+      ```tsx
+      // ✅ Good - D3 integration with React
+      import { useEffect, useRef } from 'react';
+      import * as d3 from 'd3';
+      
+      interface ChartProps {
+        data: DataPoint[];
+      }
+      
+      export const Chart: FC<ChartProps> = ({ data }) => {
+        const svgRef = useRef<SVGSVGElement>(null);
+        
+        useEffect(() => {
+          if (!svgRef.current) return;
+          
+          const svg = d3.select(svgRef.current);
+          // D3 visualization code
+          
+          return () => {
+            // Cleanup
+          };
+        }, [data]);
+        
+        return <svg ref={svgRef} />;
+      };
+      ```
+      
+      ### Performance Optimization
+      - Use `React.memo()` for expensive components
+      - Use `useMemo()` for expensive calculations
+      - Use `useCallback()` for stable function references
+      - Implement code splitting with `React.lazy()`
+      - Use Next.js Image component for optimized images
+      - Implement proper loading states and error boundaries
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

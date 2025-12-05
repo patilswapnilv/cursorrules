@@ -1,0 +1,156 @@
+---
+description: TypeScript/Node.js 20.x+/NestJS/Express/Fastify development standards for type safety, async/await, validation, formatting, and module boundaries
+globs: *.ts, *.tsx, *.js, *.jsx, nest-cli.json, tsconfig.json, package.json
+alwaysApply: false
+tags:
+  - language:typescript
+  - language:javascript
+  - framework:nestjs
+  - framework:express
+  - framework:fastify
+  - category:best-practice
+  - category:style
+---
+# TypeScript & Node.js Development Standards
+
+Enforces best practices for TypeScript and Node.js development, including type safety, async/await patterns, validation, formatting, and module boundaries for NestJS, Express, and Fastify applications.
+
+<rule>
+name: typescript_node_standards
+description: Enforce TypeScript and Node.js development best practices for modern server-side applications
+filters:
+  - type: file_extension
+    pattern: "\\.(ts|tsx|js|jsx)$"
+  - type: file_path
+    pattern: ".*(src|lib|server|api|app).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Type Safety
+      - pattern: "any\\s+\\w+|:\\s*any"
+        message: "Avoid using 'any' type. Use 'unknown', proper types, or generics instead."
+      
+      - pattern: "@ts-ignore|@ts-nocheck"
+        message: "Avoid suppressing TypeScript errors. Fix the underlying type issues instead."
+      
+      - pattern: "as\\s+any"
+        message: "Avoid type assertions to 'any'. Use proper type guards or type narrowing."
+      
+      # Async/Await Patterns
+      - pattern: "\\.then\\(|\.catch\\(|Promise\\.all\\([^)]*\\)\\.then"
+        message: "Prefer async/await over Promise.then() chains for better readability."
+      
+      - pattern: "async\\s+function\\s+\\w+.*await\\s+await"
+        message: "Avoid double await. Remove redundant await statements."
+      
+      - pattern: "async\\s+function\\s+\\w+\\([^)]*\\)\\s*\\{[^}]*return\\s+await"
+        message: "In most cases, you don't need 'return await'. Just return the promise directly."
+      
+      # Error Handling
+      - pattern: "catch\\s*\\(\\s*\\w*\\s*\\)\\s*\\{[^}]*\\}"
+        message: "Always handle errors properly. Log errors and provide meaningful error messages."
+      
+      - pattern: "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+        message: "Empty catch blocks are dangerous. At minimum, log the error."
+      
+      # Validation
+      - pattern: "req\\.(body|query|params)\\.[^\\s]+(?!\\s*\\?)"
+        message: "Validate and sanitize all user inputs. Use validation libraries like class-validator, zod, or joi."
+      
+      # Module Boundaries
+      - pattern: "import\\s+.*from\\s+['\"]\\.\\.\/\\.\\.\/\\.\\.\/"
+        message: "Avoid deep relative imports. Use path aliases or barrel exports instead."
+      
+      - pattern: "import\\s+\\{[^}]+\\}\\s+from\\s+['\"]\\.\\.\/\\.\\.\/"
+        message: "Consider using path aliases configured in tsconfig.json for cleaner imports."
+
+  - type: suggest
+    message: |
+      **TypeScript & Node.js Best Practices:**
+      
+      ### Type Safety
+      - **Strict Mode:** Enable strict mode in tsconfig.json (strict: true)
+      - **Type Definitions:** Always define explicit return types for functions
+      - **Interfaces vs Types:** Use interfaces for object shapes, types for unions/intersections
+      - **Generics:** Leverage generics for reusable, type-safe code
+      - **Type Guards:** Use type guards for runtime type checking
+      
+      ### Async/Await Patterns
+      ```typescript
+      // ✅ Good
+      async function fetchUser(id: string): Promise<User> {
+        const response = await fetch(`/api/users/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch user');
+        return response.json();
+      }
+      
+      // ❌ Bad
+      function fetchUser(id: string) {
+        return fetch(`/api/users/${id}`)
+          .then(res => res.json())
+          .catch(err => console.error(err));
+      }
+      ```
+      
+      ### Error Handling
+      ```typescript
+      // ✅ Good
+      try {
+        const result = await riskyOperation();
+        return result;
+      } catch (error) {
+        logger.error('Operation failed', { error, context });
+        throw new CustomError('User-friendly message', error);
+      }
+      
+      // ❌ Bad
+      try {
+        await riskyOperation();
+      } catch (e) {
+        // Silent failure
+      }
+      ```
+      
+      ### Validation (NestJS Example)
+      ```typescript
+      // ✅ Good - Using class-validator
+      import { IsString, IsEmail, MinLength } from 'class-validator';
+      
+      export class CreateUserDto {
+        @IsString()
+        @MinLength(3)
+        name: string;
+        
+        @IsEmail()
+        email: string;
+      }
+      ```
+      
+      ### Module Boundaries
+      ```typescript
+      // ✅ Good - Using path aliases
+      import { UserService } from '@app/users/user.service';
+      import { DatabaseService } from '@shared/database.service';
+      
+      // ❌ Bad - Deep relative imports
+      import { UserService } from '../../../users/user.service';
+      ```
+      
+      ### NestJS Specific
+      - Use dependency injection consistently
+      - Follow module-first architecture
+      - Use decorators appropriately (@Injectable, @Controller, etc.)
+      - Implement proper exception filters
+      - Use interceptors for cross-cutting concerns
+      
+      ### Express/Fastify Specific
+      - Use middleware for request validation
+      - Implement proper error handling middleware
+      - Use route handlers with proper typing
+      - Leverage TypeScript for request/response types
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

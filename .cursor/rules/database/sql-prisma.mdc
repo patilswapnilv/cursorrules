@@ -1,0 +1,337 @@
+---
+description: Database/ORM/migration/query/schema standards for SQL, Prisma, TimescaleDB, pgvector, and graph database (Neo4j Cypher) operations
+globs: *.sql, *.prisma, schema.prisma, migrations/*.sql, *.cypher
+alwaysApply: false
+tags:
+  - language:sql
+  - framework:prisma
+  - category:database
+  - category:best-practice
+---
+# SQL, Prisma, and Database Standards
+
+Enforces best practices for database operations, including SQL queries, Prisma ORM usage, migrations, schema design, TimescaleDB time-series data, pgvector embeddings, and Neo4j graph queries.
+
+<rule>
+name: sql_prisma_database_standards
+description: Enforce database and ORM best practices for SQL, Prisma, TimescaleDB, pgvector, and Neo4j
+filters:
+  - type: file_extension
+    pattern: "\\.(sql|prisma|cypher)$"
+  - type: file_path
+    pattern: ".*(migrations|schema|database|db).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # SQL Injection Prevention
+      - pattern: "\\$\\{[^}]+\\}|\\+\\s*['\"][^'\"]*['\"]|query\\([^)]*['\"][^'\"]*\\+"
+        message: "Never concatenate user input into SQL queries. Use parameterized queries or Prisma's query builder."
+      
+      # Prisma Best Practices
+      - pattern: "prisma\\.\\w+\\.findMany\\(\\{[^}]*\\}\\s*\\)"
+        message: "Always use select/include to limit returned fields. Avoid fetching entire entities when only specific fields are needed."
+      
+      - pattern: "prisma\\.\\w+\\.findMany\\(\\s*\\)"
+        message: "Unbounded queries can cause performance issues. Always use pagination (take/skip) or limit results."
+      
+      # Migration Safety
+      - pattern: "ALTER\\s+TABLE\\s+\\w+\\s+DROP\\s+(COLUMN|TABLE)"
+        message: "Destructive operations in migrations should be reversible. Consider data migration strategies."
+      
+      # Index Usage
+      - pattern: "CREATE\\s+TABLE\\s+\\w+.*PRIMARY\\s+KEY"
+        message: "Ensure primary keys and foreign keys are properly indexed. Consider composite indexes for common query patterns."
+      
+      # Transaction Management
+      - pattern: "BEGIN|COMMIT|ROLLBACK"
+        message: "Use Prisma transactions ($transaction) or proper transaction management. Avoid manual transaction control when using ORMs."
+
+  - type: suggest
+    message: |
+      **Database & ORM Best Practices:**
+      
+      ### SQL Security
+      ```sql
+      -- ✅ Good - Parameterized queries
+      SELECT * FROM users WHERE email = $1;
+      
+      -- ❌ Bad - SQL injection risk
+      SELECT * FROM users WHERE email = '$email';
+      ```
+      
+      ### Prisma Query Optimization
+      ```typescript
+      // ✅ Good - Select specific fields
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
+        where: { active: true },
+        take: 100,
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      // ❌ Bad - Fetching everything
+      const users = await prisma.user.findMany();
+      ```
+      
+      ### Prisma Relations
+      ```typescript
+      // ✅ Good - Use include selectively
+      const posts = await prisma.post.findMany({
+        include: {
+          author: {
+            select: { name: true, email: true },
+          },
+          _count: {
+            select: { comments: true },
+          },
+        },
+      });
+      ```
+      
+      ### Prisma Transactions
+      ```typescript
+      // ✅ Good - Use transactions for related operations
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({ data: userData });
+        await tx.profile.create({ data: { userId: user.id, ...profileData } });
+        return user;
+      });
+      ```
+      
+      ### Migration Best Practices
+      ```prisma
+      // ✅ Good - Schema changes with proper types
+      model User {
+        id        String   @id @default(uuid())
+        email     String   @unique
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
+        
+        @@index([email])
+        @@map("users")
+      }
+      ```
+      
+      ### TimescaleDB (Time-Series)
+      ```sql
+      -- ✅ Good - Hypertable creation with chunk time interval
+      SELECT create_hypertable('sensor_data', 'timestamp', 
+                               chunk_time_interval => INTERVAL '1 day');
+      
+      -- ✅ Good - Time-based aggregation queries
+      SELECT time_bucket('1 hour', timestamp) AS hour,
+             AVG(temperature) AS avg_temp,
+             MAX(temperature) AS max_temp,
+             MIN(temperature) AS min_temp,
+             COUNT(*) AS reading_count
+      FROM sensor_data
+      WHERE timestamp > NOW() - INTERVAL '24 hours'
+      GROUP BY hour
+      ORDER BY hour;
+      
+      -- ✅ Good - Continuous aggregates (materialized views)
+      CREATE MATERIALIZED VIEW sensor_data_hourly
+      WITH (timescaledb.continuous) AS
+      SELECT time_bucket('1 hour', timestamp) AS hour,
+             device_id,
+             AVG(temperature) AS avg_temp
+      FROM sensor_data
+      GROUP BY hour, device_id;
+      
+      -- ✅ Good - Retention policy
+      SELECT add_retention_policy('sensor_data', INTERVAL '90 days');
+      
+      -- ✅ Good - Compression policy
+      ALTER TABLE sensor_data SET (
+        timescaledb.compress,
+        timescaledb.compress_segmentby = 'device_id'
+      );
+      SELECT add_compression_policy('sensor_data', INTERVAL '7 days');
+      
+      -- ✅ Good - Gap filling for missing data
+      SELECT time_bucket_gapfill('1 hour', timestamp, 
+                                 start => NOW() - INTERVAL '24 hours',
+                                 finish => NOW()) AS hour,
+             locf(avg(temperature)) AS avg_temp
+      FROM sensor_data
+      WHERE timestamp > NOW() - INTERVAL '24 hours'
+      GROUP BY hour;
+      ```
+      
+      ### pgvector (Embeddings)
+      ```sql
+      -- ✅ Good - Create vector extension
+      CREATE EXTENSION IF NOT EXISTS vector;
+      
+      -- ✅ Good - Create table with vector column
+      CREATE TABLE documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        content TEXT,
+        embedding vector(1536)  -- OpenAI ada-002 dimension
+      );
+      
+      -- ✅ Good - Create HNSW index for fast similarity search
+      CREATE INDEX ON documents 
+      USING hnsw (embedding vector_l2_ops)
+      WITH (m = 16, ef_construction = 64);
+      
+      -- ✅ Good - Vector similarity search (L2 distance)
+      SELECT id, content,
+             1 - (embedding <=> $1::vector) AS similarity
+      FROM documents
+      WHERE embedding <=> $1::vector < 0.5
+      ORDER BY embedding <=> $1::vector
+      LIMIT 10;
+      
+      -- ✅ Good - Cosine similarity search
+      SELECT id, content,
+             1 - (embedding <=> $1::vector) AS cosine_similarity
+      FROM documents
+      ORDER BY embedding <=> $1::vector
+      LIMIT 10;
+      
+      -- ✅ Good - Inner product for maximum similarity
+      SELECT id, content,
+             (embedding <#> $1::vector) * -1 AS inner_product
+      FROM documents
+      ORDER BY embedding <#> $1::vector
+      LIMIT 10;
+      
+      -- Prisma schema for pgvector
+      model Document {
+        id        String  @id @default(uuid())
+        content   String
+        embedding Unsupported("vector(1536)")
+        
+        @@index([embedding(ops: vector_l2_ops)])
+        @@map("documents")
+      }
+      
+      -- ✅ Good - Hybrid search (vector + metadata filtering)
+      SELECT id, content,
+             1 - (embedding <=> $1::vector) AS similarity
+      FROM documents
+      WHERE category = $2
+        AND embedding <=> $1::vector < 0.5
+      ORDER BY embedding <=> $1::vector
+      LIMIT 10;
+      
+      -- ✅ Good - Embedding dimension management
+      -- Always specify dimension when creating vector columns
+      -- Common dimensions: 384 (sentence-transformers), 768 (BERT), 1536 (OpenAI ada-002)
+      ```
+      
+      ### Neo4j Cypher Queries
+      ```cypher
+      // ✅ Good - Parameterized queries (prevents injection)
+      MATCH (u:User {email: $email})-[:OWNS]->(p:Post)
+      WHERE p.published = true
+      RETURN p
+      ORDER BY p.createdAt DESC
+      LIMIT 10;
+      
+      // ❌ Bad - String concatenation (injection risk)
+      // MATCH (u:User {email: "' + email + '"})
+      
+      // ✅ Good - Relationship traversal with depth
+      MATCH (user:User {id: $userId})-[:FOLLOWS*2..3]->(follower:User)
+      RETURN DISTINCT follower;
+      
+      // ✅ Good - Graph schema design patterns
+      // Use labels for node types: (User), (Post), (Comment)
+      // Use relationship types for connections: [:FOLLOWS], [:LIKES], [:COMMENTED_ON]
+      // Use properties for attributes: {id, name, email, createdAt}
+      
+      // ✅ Good - Index creation for performance
+      CREATE INDEX user_email_index FOR (u:User) ON (u.email);
+      CREATE INDEX post_published_index FOR (p:Post) ON (p.published);
+      
+      // ✅ Good - Transaction management
+      BEGIN
+      MATCH (u:User {id: $userId})
+      CREATE (p:Post {id: $postId, title: $title, content: $content})
+      CREATE (u)-[:OWNS]->(p)
+      COMMIT
+      
+      // ✅ Good - Query optimization with EXPLAIN
+      EXPLAIN MATCH (u:User)-[:FOLLOWS]->(f:User)
+      WHERE u.id = $userId
+      RETURN f;
+      
+      // ✅ Good - Path finding queries
+      MATCH path = shortestPath(
+        (start:User {id: $startId})-[*]-(end:User {id: $endId})
+      )
+      RETURN path, length(path) AS pathLength;
+      
+      // ✅ Good - Aggregation queries
+      MATCH (u:User)-[:OWNS]->(p:Post)
+      WHERE u.id = $userId
+      RETURN u, count(p) AS postCount, collect(p.id) AS postIds;
+      
+      // ✅ Good - Pattern matching with constraints
+      MATCH (u:User)-[:FOLLOWS]->(f:User)-[:FOLLOWS]->(ff:User)
+      WHERE u.id = $userId AND NOT (u)-[:FOLLOWS]->(ff)
+      RETURN DISTINCT ff AS suggestedFollowers;
+      
+      // ✅ Good - Graph algorithms (if APOC available)
+      // MATCH (u:User)
+      // CALL apoc.path.subgraphNodes(u, {
+      //   relationshipFilter: 'FOLLOWS>',
+      //   minLevel: 1,
+      //   maxLevel: 2
+      // })
+      // YIELD node
+      // RETURN node;
+      ```
+      
+      ### Performance Optimization
+      - **Indexes:** Create indexes on frequently queried columns
+      - **Pagination:** Always use LIMIT/OFFSET or cursor-based pagination
+      - **Query Analysis:** Use EXPLAIN ANALYZE to understand query plans
+      - **Connection Pooling:** Configure appropriate pool sizes
+      - **Batch Operations:** Use batch inserts/updates for bulk operations
+      
+      ### Data Integrity
+      - Use foreign key constraints
+      - Implement soft deletes where appropriate
+      - Use database-level validation for critical constraints
+      - Consider using database triggers for audit logging
+
+      ### Database-Specific Best Practices
+      
+      **TimescaleDB:**
+      - Use appropriate chunk time intervals (1 day for high-frequency data, 1 week for low-frequency)
+      - Create continuous aggregates for common queries
+      - Set up retention policies to manage data growth
+      - Enable compression for older data
+      - Use gap filling for time-series visualization
+      - Consider partitioning by device_id or location for better performance
+      
+      **pgvector:**
+      - Choose appropriate index type: HNSW (fast, larger) or IVFFlat (smaller, slower)
+      - Tune HNSW parameters: m (connections), ef_construction (build quality)
+      - Use correct distance metric: L2 (<=>) for embeddings, cosine for normalized vectors
+      - Specify embedding dimensions explicitly (384, 768, 1536, etc.)
+      - Consider hybrid search combining vector similarity with metadata filters
+      - Monitor index size and query performance
+      
+      **Neo4j:**
+      - Create indexes on frequently queried properties
+      - Use appropriate relationship types and directions
+      - Limit relationship traversal depth to avoid performance issues
+      - Use parameterized queries to prevent Cypher injection
+      - Consider using APOC procedures for complex graph operations
+      - Use transactions for multi-step operations
+      - Monitor query performance with EXPLAIN and PROFILE
+
+metadata:
+  priority: high
+  version: 1.1
+  lastUpdated: 2025-12-05
+</rule>

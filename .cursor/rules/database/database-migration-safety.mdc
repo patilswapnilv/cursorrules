@@ -1,0 +1,119 @@
+---
+description: Database migration safety standards for zero-downtime deployments, rollback procedures, and data validation
+globs: *.sql, migrations/*.sql, migrations/*.ts, migrations/*.js, migrations/*.py, schema.prisma, **/migrations/**
+alwaysApply: false
+tags:
+  - category:database
+  - category:safety
+  - category:best-practice
+  - standard:migration
+  - risk:high
+---
+# Database Migration Safety Standards
+
+Enforces safety practices for database migrations to prevent data loss, production downtime, and ensure reversible changes with proper validation.
+
+<rule>
+name: database_migration_safety
+description: Enforce database migration safety practices including rollback procedures, zero-downtime patterns, and data validation
+filters:
+  - type: file_extension
+    pattern: "\\.(sql|prisma|ts|js|py)$"
+  - type: file_path
+    pattern: ".*(migrations?|migration|schema).*"
+  - type: file_path
+    pattern: ".*\\.(up|down|forward|backward)\\.sql"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Destructive operations without rollback
+      - pattern: "DROP\\s+(TABLE|COLUMN|INDEX|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE|DELETE\\s+FROM\\s+\\w+\\s+WHERE\\s+1\\s*=\\s*1"
+        message: "Destructive operations require corresponding rollback migration. Always create reversible migrations with both up and down procedures."
+        
+      # Pattern 2: Missing transaction wrappers
+      - pattern: "^ALTER\\s+TABLE|^DROP\\s+TABLE|^CREATE\\s+TABLE"
+        message: "Wrap migration operations in transactions when possible. Use BEGIN/COMMIT for atomic operations."
+        
+      # Pattern 3: Adding NOT NULL columns without default
+      - pattern: "ALTER\\s+TABLE\\s+\\w+\\s+ADD\\s+COLUMN\\s+\\w+\\s+\\w+\\s+NOT\\s+NULL(?!\\s+DEFAULT)"
+        message: "Adding NOT NULL columns to existing tables requires a default value or a multi-step migration: 1) Add column as nullable, 2) Backfill data, 3) Add NOT NULL constraint."
+        
+      # Pattern 4: Foreign key constraints without indexes
+      - pattern: "ADD\\s+FOREIGN\\s+KEY|REFERENCES\\s+\\w+\\s*\\([^)]+\\)"
+        message: "Foreign key columns should be indexed for performance. Add index on foreign key columns."
+        
+      # Pattern 5: Large table operations without batching
+      - pattern: "UPDATE\\s+\\w+\\s+SET|DELETE\\s+FROM\\s+\\w+"
+        message: "Large table updates/deletes should be batched to avoid locking. Use LIMIT/OFFSET or cursor-based pagination for large operations."
+        
+      # Pattern 6: Missing migration versioning
+      - pattern: "^--\\s*Migration:|^--\\s*Version:|^--\\s*Timestamp:"
+        message: "Include migration metadata: version number, timestamp, description, and author for traceability."
+        
+      # Pattern 7: Schema changes without data migration plan
+      - pattern: "ALTER\\s+TABLE\\s+\\w+\\s+(RENAME|MODIFY|CHANGE)\\s+COLUMN"
+        message: "Column renames/modifications may require data migration. Document data transformation logic and test on staging first."
+
+  - type: reject
+    conditions:
+      # Reject: Direct production schema changes
+      - pattern: "ALTER\\s+TABLE\\s+\\w+\\s+.*\\s+PRODUCTION|--\\s*TODO.*production"
+        message: "Never apply schema changes directly to production. Always use versioned migrations tested in staging."
+        
+      # Reject: Hardcoded table names in migrations
+      - pattern: "CREATE\\s+TABLE\\s+['\"][^'\"]+['\"]|ALTER\\s+TABLE\\s+['\"][^'\"]+['\"]"
+        message: "Use parameterized table names or configuration. Avoid hardcoded table names that may differ across environments."
+
+  - type: suggest
+    message: |
+      **Database Migration Safety Checklist:**
+      
+      **Pre-Migration Validation:**
+      - [ ] Review migration on staging environment first
+      - [ ] Test rollback procedure on staging
+      - [ ] Verify data backup exists before destructive operations
+      - [ ] Check migration execution time and resource usage
+      - [ ] Validate foreign key constraints and indexes
+      - [ ] Review impact on application queries and performance
+      
+      **Migration Structure:**
+      - [ ] Include both UP and DOWN migration scripts
+      - [ ] Wrap operations in transactions where supported
+      - [ ] Add migration metadata (version, timestamp, description)
+      - [ ] Use parameterized queries, avoid hardcoded values
+      - [ ] Batch large data operations (UPDATE/DELETE)
+      
+      **Zero-Downtime Patterns:**
+      - [ ] Add new columns as nullable first, then backfill, then add constraints
+      - [ ] Use feature flags for gradual rollout of schema-dependent code
+      - [ ] Deploy application code before removing old columns
+      - [ ] Use blue-green deployment for major schema changes
+      - [ ] Consider read replicas for read-heavy migrations
+      
+      **Data Migration Safety:**
+      - [ ] Validate data before and after migration
+      - [ ] Use idempotent migration scripts (safe to run multiple times)
+      - [ ] Implement data checksums for integrity verification
+      - [ ] Document data transformation logic clearly
+      - [ ] Test with production-like data volumes
+      
+      **Rollback Procedures:**
+      - [ ] Test rollback on staging before production
+      - [ ] Document rollback steps and dependencies
+      - [ ] Ensure rollback doesn't cause data loss
+      - [ ] Consider partial rollback strategies for complex migrations
+      - [ ] Maintain rollback scripts in version control
+      
+      **Schema Change Impact Assessment:**
+      - [ ] Review affected queries and indexes
+      - [ ] Check application code dependencies
+      - [ ] Assess performance impact of new constraints
+      - [ ] Verify compatibility with ORM/query builders
+      - [ ] Review impact on replication and backups
+
+metadata:
+  priority: critical
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

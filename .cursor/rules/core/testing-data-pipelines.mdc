@@ -1,0 +1,248 @@
+---
+description: Data pipeline testing standards for ETL operations, data validation, and integration testing
+globs: test_*.py, *_test.py, tests/**/*.py, pipelines/**/*.py
+alwaysApply: false
+tags:
+  - category:testing
+  - category:data-pipeline
+  - language:python
+  - standard:etl
+---
+# Data Pipeline Testing Standards
+
+Enforces testing best practices for data pipelines including ETL operations, data validation, and integration testing.
+
+<rule>
+name: data_pipeline_testing_standards
+description: Enforce testing best practices for data pipelines including ETL operations and data validation
+filters:
+  - type: file_extension
+    pattern: "\\.py$"
+  - type: file_path
+    pattern: ".*(pipeline|etl|extract|transform|load|data[_-]?pipeline|test).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Missing data validation tests
+      - pattern: "def\\s+test_[^(]*transform|def\\s+test_[^(]*load|def\\s+test_[^(]*extract"
+        message: "Test data validation: schema, data types, required fields, data quality. Include validation tests for each transformation step."
+        
+      # Pattern 2: Missing error handling tests
+      - pattern: "def\\s+test_[^(]*pipeline|def\\s+test_[^(]*etl"
+        message: "Test error handling: missing files, invalid data, network failures, database errors. Use pytest.raises() for exception testing."
+        
+      # Pattern 3: Missing idempotency tests
+      - pattern: "def\\s+test_[^(]*load|def\\s+test_[^(]*insert|def\\s+test_[^(]*save"
+        message: "Test idempotency: running pipeline multiple times should produce same results. Test duplicate handling."
+        
+      # Pattern 4: Hardcoded test data
+      - pattern: "def\\s+test_[^(]*\\([^)]*\\)\\s*:\\s*[^=]*=\\s*pd\\.DataFrame\\(\\{[^}]*['\"][^'\"]+['\"]"
+        message: "Use fixtures or test data generators for test data. Avoid hardcoded DataFrames in tests."
+        
+      # Pattern 5: Missing integration tests
+      - pattern: "def\\s+test_[^(]*\\([^)]*\\)\\s*:\\s*[^}]*\\.(read_|to_sql|insert)"
+        message: "Include integration tests that test end-to-end pipeline execution. Test with realistic data volumes."
+
+  - type: suggest
+    message: |
+      **Data Pipeline Testing Best Practices:**
+      
+      **Unit Testing:**
+      - [ ] Test individual transformation functions
+      - [ ] Test data validation logic
+      - [ ] Test error handling
+      - [ ] Use fixtures for test data
+      - [ ] Mock external dependencies (APIs, databases)
+      
+      **Example:**
+      ```python
+      import pytest
+      import pandas as pd
+      from unittest.mock import Mock, patch
+      
+      @pytest.fixture
+      def sample_data():
+        return pd.DataFrame({
+          'id': [1, 2, 3],
+          'name': ['John', 'Jane', 'Bob'],
+          'email': ['john@example.com', 'jane@example.com', 'bob@example.com'],
+          'age': [25, 30, 35]
+        })
+      
+      def test_transform_data_adds_full_name(sample_data):
+        result = transform_data(sample_data)
+        
+        assert 'full_name' in result.columns
+        assert result['full_name'].iloc[0] == 'John'
+      
+      def test_validate_data_raises_error_for_missing_columns():
+        invalid_data = pd.DataFrame({'id': [1, 2]})
+        
+        with pytest.raises(ValueError, match='Missing required columns'):
+          validate_data(invalid_data)
+      ```
+      
+      **Data Validation Testing:**
+      - [ ] Test schema validation
+      - [ ] Test data type validation
+      - [ ] Test required field validation
+      - [ ] Test data quality checks (nulls, duplicates, ranges)
+      - [ ] Test data transformation accuracy
+      
+      **Example:**
+      ```python
+      def test_validate_schema():
+        valid_data = pd.DataFrame({
+          'id': [1, 2],
+          'name': ['John', 'Jane'],
+          'email': ['john@example.com', 'jane@example.com']
+        })
+        
+        assert validate_schema(valid_data) == True
+      
+      def test_validate_schema_raises_error_for_invalid_types():
+        invalid_data = pd.DataFrame({
+          'id': ['not-a-number', 'also-not-a-number'],
+          'name': ['John', 'Jane']
+        })
+        
+        with pytest.raises(ValueError, match='Invalid data type'):
+          validate_schema(invalid_data)
+      
+      def test_validate_data_quality():
+        data_with_nulls = pd.DataFrame({
+          'id': [1, 2, None],
+          'name': ['John', None, 'Bob']
+        })
+        
+        quality_report = validate_data_quality(data_with_nulls)
+        
+        assert quality_report['null_count']['id'] == 1
+        assert quality_report['null_count']['name'] == 1
+        assert quality_report['completeness'] < 1.0
+      ```
+      
+      **Error Handling Testing:**
+      - [ ] Test missing file handling
+      - [ ] Test invalid data handling
+      - [ ] Test network failure handling
+      - [ ] Test database error handling
+      - [ ] Test partial failure recovery
+      
+      **Example:**
+      ```python
+      @patch('pandas.read_csv')
+      def test_extract_handles_missing_file(mock_read_csv):
+        mock_read_csv.side_effect = FileNotFoundError('File not found')
+        
+        with pytest.raises(FileNotFoundError):
+          extract_data('missing_file.csv')
+      
+      def test_transform_handles_invalid_data():
+        invalid_data = pd.DataFrame({
+          'id': [1, 2, 'invalid'],
+          'age': [25, 'not-a-number', 30]
+        })
+        
+        with pytest.raises(ValueError, match='Invalid data'):
+          transform_data(invalid_data)
+      
+      @patch('sqlalchemy.create_engine')
+      def test_load_handles_database_error(mock_engine):
+        mock_engine.side_effect = Exception('Database connection failed')
+        
+        with pytest.raises(Exception, match='Database connection failed'):
+          load_data(pd.DataFrame(), 'postgresql://...')
+      ```
+      
+      **Idempotency Testing:**
+      - [ ] Test running pipeline multiple times
+      - [ ] Test duplicate record handling
+      - [ ] Test UPSERT operations
+      - [ ] Test checkpoint/resume functionality
+      
+      **Example:**
+      ```python
+      def test_pipeline_is_idempotent():
+        data = pd.DataFrame({'id': [1, 2], 'name': ['John', 'Jane']})
+        
+        # First run
+        result1 = run_pipeline(data)
+        
+        # Second run (should produce same result)
+        result2 = run_pipeline(data)
+        
+        assert result1.equals(result2)
+        assert len(result1) == len(result2)
+      
+      def test_load_handles_duplicates():
+        data = pd.DataFrame({'id': [1, 1, 2], 'name': ['John', 'John', 'Jane']})
+        
+        result = load_data(data, mode='upsert')
+        
+        # Should have only 2 unique records
+        assert len(result) == 2
+        assert result['id'].nunique() == 2
+      ```
+      
+      **Integration Testing:**
+      - [ ] Test end-to-end pipeline execution
+      - [ ] Test with realistic data volumes
+      - [ ] Test with production-like data
+      - [ ] Test performance and scalability
+      - [ ] Test data consistency
+      
+      **Example:**
+      ```python
+      @pytest.fixture
+      def test_database():
+        engine = create_engine('sqlite:///:memory:')
+        Base.metadata.create_all(engine)
+        yield engine
+        Base.metadata.drop_all(engine)
+      
+      def test_end_to_end_pipeline(test_database):
+        # Extract
+        source_data = extract_data('test_data.csv')
+        
+        # Transform
+        transformed_data = transform_data(source_data)
+        
+        # Load
+        load_data(transformed_data, test_database)
+        
+        # Verify
+        result = pd.read_sql('SELECT * FROM users', test_database)
+        assert len(result) == len(source_data)
+        assert 'email_domain' in result.columns
+      ```
+      
+      **Performance Testing:**
+      - [ ] Test with large datasets
+      - [ ] Measure processing time
+      - [ ] Test memory usage
+      - [ ] Test scalability
+      
+      **Example:**
+      ```python
+      def test_pipeline_performance():
+        large_data = pd.DataFrame({
+          'id': range(100000),
+          'name': ['User'] * 100000,
+          'email': [f'user{i}@example.com' for i in range(100000)]
+        })
+        
+        start_time = time.time()
+        result = run_pipeline(large_data)
+        elapsed_time = time.time() - start_time
+        
+        assert elapsed_time < 60  # Should complete in under 60 seconds
+        assert len(result) == 100000
+      ```
+
+metadata:
+  priority: high
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

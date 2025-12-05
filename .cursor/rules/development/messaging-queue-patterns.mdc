@@ -1,0 +1,318 @@
+---
+description: Guidelines for job queue usage, message brokers, background workers, idempotency, retries, and error handling with Redis, BullMQ, and RabbitMQ
+globs: *.ts, *.js, *.py, queue.config.js, worker.config.js
+alwaysApply: false
+tags:
+  - category:best-practice
+  - category:performance
+  - subcategory:message-queue
+  - subcategory:background-jobs
+---
+# Messaging Queue & Background Job Patterns
+
+Enforces best practices for job queues, message brokers, background workers, idempotency, retries, and error handling using Redis, BullMQ, RabbitMQ, and similar systems.
+
+<rule>
+name: messaging_queue_patterns
+description: Enforce best practices for message queues, job processing, and background workers
+filters:
+  - type: file_extension
+    pattern: "\\.(ts|js|py)$"
+  - type: file_path
+    pattern: ".*(queue|worker|job|bull|rabbit|redis|background).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Idempotency
+      - pattern: "process\\.queue\\.add\\([^)]*\\)|queue\\.add\\([^)]*\\)"
+        message: "Ensure job processing is idempotent. Jobs may be retried or processed multiple times."
+      
+      # Error Handling
+      - pattern: "process\\.queue\\.process\\([^)]*\\)(?!.*catch|.*try)"
+        message: "Always implement error handling in job processors. Catch exceptions and handle failures gracefully."
+      
+      # Retry Logic
+      - pattern: "attempts:\\s*0|retry:\\s*false"
+        message: "Configure appropriate retry strategies for transient failures. Consider exponential backoff."
+      
+      # Job Data Validation
+      - pattern: "job\\.data\\.[^\\s]+(?!\\s*\\?)"
+        message: "Validate job data before processing. Handle missing or invalid data gracefully."
+
+  - type: suggest
+    message: |
+      **Messaging Queue & Background Job Best Practices:**
+      
+      ### BullMQ (Node.js/TypeScript)
+      ```typescript
+      // ✅ Good - Proper queue setup with error handling
+      import { Queue, Worker, Job } from 'bullmq';
+      import Redis from 'ioredis';
+      
+      const connection = new Redis({
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        maxRetriesPerRequest: null,
+      });
+      
+      interface EmailJobData {
+        to: string;
+        subject: string;
+        body: string;
+        userId: string;
+      }
+      
+      const emailQueue = new Queue<EmailJobData>('email', { connection });
+      
+      // ✅ Good - Worker with idempotency and error handling
+      const emailWorker = new Worker<EmailJobData>(
+        'email',
+        async (job: Job<EmailJobData>) => {
+          const { to, subject, body, userId } = job.data;
+          
+          // Validate job data
+          if (!to || !subject || !body) {
+            throw new Error('Invalid job data: missing required fields');
+          }
+          
+          // Check idempotency (prevent duplicate processing)
+          const jobKey = `email:${userId}:${job.id}`;
+          const processed = await connection.get(jobKey);
+          if (processed) {
+            console.log(`Job ${job.id} already processed`);
+            return { skipped: true, reason: 'already_processed' };
+          }
+          
+          // Process email
+          await sendEmail({ to, subject, body });
+          
+          // Mark as processed
+          await connection.setex(jobKey, 3600, '1');
+          
+          return { success: true, sentAt: new Date() };
+        },
+        {
+          connection,
+          concurrency: 5,
+          limiter: {
+            max: 100,
+            duration: 1000,
+          },
+        }
+      );
+      
+      // ✅ Good - Error handling
+      emailWorker.on('completed', (job) => {
+        console.log(`Job ${job.id} completed`);
+      });
+      
+      emailWorker.on('failed', (job, err) => {
+        console.error(`Job ${job.id} failed:`, err);
+        // Log to monitoring system
+        // Send alert if critical
+      });
+      
+      // ✅ Good - Adding jobs with retry configuration
+      async function queueEmail(data: EmailJobData) {
+        return emailQueue.add('send-email', data, {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: {
+            age: 24 * 3600, // Keep for 24 hours
+            count: 1000,
+          },
+          removeOnFail: {
+            age: 7 * 24 * 3600, // Keep failures for 7 days
+          },
+        });
+      }
+      ```
+      
+      ### RabbitMQ (Node.js/TypeScript)
+      ```typescript
+      // ✅ Good - RabbitMQ with proper error handling
+      import amqp from 'amqplib';
+      
+      interface MessageData {
+        userId: string;
+        action: string;
+        data: Record<string, unknown>;
+      }
+      
+      async function setupWorker() {
+        const connection = await amqp.connect(process.env.RABBITMQ_URL!);
+        const channel = await connection.createChannel();
+        
+        const queue = 'user-events';
+        await channel.assertQueue(queue, {
+          durable: true, // Survive broker restarts
+        });
+        
+        // Prefetch to limit unacknowledged messages
+        channel.prefetch(1);
+        
+        await channel.consume(queue, async (msg) => {
+          if (!msg) return;
+          
+          try {
+            const data: MessageData = JSON.parse(msg.content.toString());
+            
+            // Validate message
+            if (!data.userId || !data.action) {
+              throw new Error('Invalid message format');
+            }
+            
+            // Process message (idempotent operation)
+            await processUserEvent(data);
+            
+            // Acknowledge only after successful processing
+            channel.ack(msg);
+          } catch (error) {
+            console.error('Message processing failed:', error);
+            
+            // Reject and requeue for transient errors
+            if (isTransientError(error)) {
+              channel.nack(msg, false, true); // Requeue
+            } else {
+              // Dead letter queue for permanent failures
+              channel.nack(msg, false, false);
+            }
+          }
+        });
+      }
+      ```
+      
+      ### Python (Celery with Redis)
+      ```python
+      # ✅ Good - Celery task with idempotency
+      from celery import Celery
+      from typing import Dict, Any
+      import redis
+      import hashlib
+      import json
+      
+      app = Celery('tasks', broker='redis://localhost:6379/0')
+      redis_client = redis.Redis(host='localhost', port=6379, db=0)
+      
+      @app.task(
+          bind=True,
+          max_retries=3,
+          default_retry_delay=60,
+          autoretry_for=(ConnectionError, TimeoutError),
+      )
+      def process_payment(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+          """Process payment with idempotency check."""
+          # Generate idempotency key
+          idempotency_key = hashlib.sha256(
+              json.dumps(payment_data, sort_keys=True).encode()
+          ).hexdigest()
+          
+          # Check if already processed
+          cache_key = f"payment:{idempotency_key}"
+          if redis_client.exists(cache_key):
+              return {
+                  "status": "already_processed",
+                  "cached_result": redis_client.get(cache_key),
+              }
+          
+          try:
+              # Process payment
+              result = execute_payment(payment_data)
+              
+              # Cache result
+              redis_client.setex(
+                  cache_key,
+                  3600,  # 1 hour
+                  json.dumps(result),
+              )
+              
+              return result
+          except Exception as exc:
+              # Retry on transient errors
+              raise self.retry(exc=exc, countdown=60)
+      ```
+      
+      ### Idempotency Patterns
+      ```typescript
+      // ✅ Good - Idempotency key generation
+      function generateIdempotencyKey(
+        userId: string,
+        action: string,
+        data: Record<string, unknown>
+      ): string {
+        const payload = JSON.stringify({ userId, action, data });
+        return crypto.createHash('sha256').update(payload).digest('hex');
+      }
+      
+      // ✅ Good - Idempotency check
+      async function processWithIdempotency<T>(
+        key: string,
+        processor: () => Promise<T>
+      ): Promise<T> {
+        const cached = await redis.get(`idempotency:${key}`);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+        
+        const result = await processor();
+        await redis.setex(`idempotency:${key}`, 3600, JSON.stringify(result));
+        return result;
+      }
+      ```
+      
+      ### Retry Strategies
+      ```typescript
+      // ✅ Good - Exponential backoff
+      function calculateBackoff(attempt: number, baseDelay: number = 1000): number {
+        return Math.min(baseDelay * Math.pow(2, attempt), 30000); // Max 30s
+      }
+      
+      // ✅ Good - Retry configuration
+      const retryConfig = {
+        attempts: 5,
+        backoff: {
+          type: 'exponential' as const,
+          delay: 2000,
+        },
+        removeOnComplete: {
+          age: 24 * 3600,
+          count: 1000,
+        },
+      };
+      ```
+      
+      ### Error Handling & Dead Letter Queues
+      ```typescript
+      // ✅ Good - Dead letter queue setup
+      const dlqQueue = new Queue('dead-letter-queue', { connection });
+      
+      emailWorker.on('failed', async (job, err) => {
+        // Move to DLQ after max retries
+        if (job.attemptsMade >= job.opts.attempts!) {
+          await dlqQueue.add('failed-email', {
+            originalJob: job.data,
+            error: err.message,
+            failedAt: new Date(),
+          });
+        }
+      });
+      ```
+      
+      ### Best Practices Summary
+      - **Idempotency:** Always design jobs to be idempotent
+      - **Validation:** Validate job data before processing
+      - **Error Handling:** Catch and handle all errors appropriately
+      - **Retries:** Configure retry strategies with exponential backoff
+      - **Monitoring:** Log job status, failures, and performance metrics
+      - **Resource Limits:** Set appropriate concurrency and rate limits
+      - **Dead Letter Queues:** Use DLQ for permanently failed jobs
+      - **Job Cleanup:** Configure retention policies for completed/failed jobs
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

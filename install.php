@@ -47,7 +47,7 @@ const TAG_PRESETS = [
     'security' => 'category:security',
     'owasp' => 'standard:owasp-top10',
     'a11y' => 'category:accessibility',
-    // New language-specific security presets
+    // Language-specific security presets
     'php-security' => 'language:php category:security',
     'js-security' => 'language:javascript category:security',
     'python-security' => 'language:python category:security',
@@ -56,6 +56,16 @@ const TAG_PRESETS = [
     'js-owasp' => 'language:javascript standard:owasp-top10',
     'python-owasp' => 'language:python standard:owasp-top10',
     'drupal-owasp' => 'framework:drupal standard:owasp-top10',
+    // Polyglot stack presets
+    'wordpress' => 'framework:wordpress',
+    'typescript' => 'language:typescript',
+    'nodejs' => 'language:typescript OR framework:nestjs OR framework:express OR framework:fastify',
+    'nextjs' => 'framework:nextjs',
+    'database' => 'framework:prisma OR subcategory:database',
+    'python-data' => 'language:python subcategory:data-pipeline OR subcategory:ml-ai',
+    'infrastructure' => 'category:infrastructure OR category:deployment',
+    'devops' => 'category:infrastructure OR category:deployment OR category:ci-cd',
+    'messaging-queue' => 'subcategory:message-queue OR subcategory:background-jobs',
 ];
 
 // Command files bundled with the installer.
@@ -163,7 +173,122 @@ function install_cursor_rules(array $options = []): bool {
     }
   }
 
-  // Define available rules.
+  // Function to map old flat paths to new subdirectory paths
+  function get_rule_path($filename) {
+    $path_map = [
+      // Core rules
+      'cursor-rules.mdc' => 'core/cursor-rules.mdc',
+      'git-commit-standards.mdc' => 'core/git-commit-standards.mdc',
+      'github-actions-standards.mdc' => 'core/github-actions-standards.mdc',
+      'improve-cursorrules-efficiency.mdc' => 'core/improve-cursorrules-efficiency.mdc',
+      'pull-request-changelist-instructions.mdc' => 'core/pull-request-changelist-instructions.mdc',
+      'readme-maintenance-standards.mdc' => 'core/readme-maintenance-standards.mdc',
+      'testing-guidelines.mdc' => 'core/testing-guidelines.mdc',
+      
+      // Security rules
+      'drupal-authentication-failures.mdc' => 'security/drupal-authentication-failures.mdc',
+      'drupal-broken-access-control.mdc' => 'security/drupal-broken-access-control.mdc',
+      'drupal-cryptographic-failures.mdc' => 'security/drupal-cryptographic-failures.mdc',
+      'drupal-injection.mdc' => 'security/drupal-injection.mdc',
+      'drupal-insecure-design.mdc' => 'security/drupal-insecure-design.mdc',
+      'drupal-integrity-failures.mdc' => 'security/drupal-integrity-failures.mdc',
+      'drupal-logging-failures.mdc' => 'security/drupal-logging-failures.mdc',
+      'drupal-security-misconfiguration.mdc' => 'security/drupal-security-misconfiguration.mdc',
+      'drupal-ssrf.mdc' => 'security/drupal-ssrf.mdc',
+      'drupal-vulnerable-components.mdc' => 'security/drupal-vulnerable-components.mdc',
+      'javascript-broken-access-control.mdc' => 'security/javascript-broken-access-control.mdc',
+      'javascript-cryptographic-failures.mdc' => 'security/javascript-cryptographic-failures.mdc',
+      'javascript-identification-authentication-failures.mdc' => 'security/javascript-identification-authentication-failures.mdc',
+      'javascript-injection.mdc' => 'security/javascript-injection.mdc',
+      'javascript-insecure-design.mdc' => 'security/javascript-insecure-design.mdc',
+      'javascript-security-logging-monitoring-failures.mdc' => 'security/javascript-security-logging-monitoring-failures.mdc',
+      'javascript-security-misconfiguration.mdc' => 'security/javascript-security-misconfiguration.mdc',
+      'javascript-server-side-request-forgery.mdc' => 'security/javascript-server-side-request-forgery.mdc',
+      'javascript-software-data-integrity-failures.mdc' => 'security/javascript-software-data-integrity-failures.mdc',
+      'javascript-vulnerable-outdated-components.mdc' => 'security/javascript-vulnerable-outdated-components.mdc',
+      'python-authentication-failures.mdc' => 'security/python-authentication-failures.mdc',
+      'python-broken-access-control.mdc' => 'security/python-broken-access-control.mdc',
+      'python-cryptographic-failures.mdc' => 'security/python-cryptographic-failures.mdc',
+      'python-injection.mdc' => 'security/python-injection.mdc',
+      'python-insecure-design.mdc' => 'security/python-insecure-design.mdc',
+      'python-integrity-failures.mdc' => 'security/python-integrity-failures.mdc',
+      'python-logging-monitoring-failures.mdc' => 'security/python-logging-monitoring-failures.mdc',
+      'python-security-misconfiguration.mdc' => 'security/python-security-misconfiguration.mdc',
+      'python-ssrf.mdc' => 'security/python-ssrf.mdc',
+      'python-vulnerable-outdated-components.mdc' => 'security/python-vulnerable-outdated-components.mdc',
+      'wordpress-authentication-failures.mdc' => 'security/wordpress-authentication-failures.mdc',
+      'wordpress-broken-access-control.mdc' => 'security/wordpress-broken-access-control.mdc',
+      'wordpress-cryptographic-failures.mdc' => 'security/wordpress-cryptographic-failures.mdc',
+      'wordpress-injection.mdc' => 'security/wordpress-injection.mdc',
+      'wordpress-insecure-design.mdc' => 'security/wordpress-insecure-design.mdc',
+      'wordpress-integrity-failures.mdc' => 'security/wordpress-integrity-failures.mdc',
+      'wordpress-logging-failures.mdc' => 'security/wordpress-logging-failures.mdc',
+      'wordpress-security-misconfiguration.mdc' => 'security/wordpress-security-misconfiguration.mdc',
+      'wordpress-ssrf.mdc' => 'security/wordpress-ssrf.mdc',
+      'wordpress-vulnerable-components.mdc' => 'security/wordpress-vulnerable-components.mdc',
+      'security-practices.mdc' => 'security/security-practices.mdc',
+      'secret-detection.mdc' => 'security/secret-detection.mdc',
+      
+      // Database rules
+      'drupal-database-standards.mdc' => 'database/drupal-database-standards.mdc',
+      'sql-prisma.mdc' => 'database/sql-prisma.mdc',
+      'wordpress-database-standards.mdc' => 'database/wordpress-database-standards.mdc',
+      
+      // Frontend rules
+      'accessibility-standards.mdc' => 'frontend/accessibility-standards.mdc',
+      'frontend-react.mdc' => 'frontend/frontend-react.mdc',
+      'react-patterns.mdc' => 'frontend/react-patterns.mdc',
+      'tailwind-standards.mdc' => 'frontend/tailwind-standards.mdc',
+      'vue-best-practices.mdc' => 'frontend/vue-best-practices.mdc',
+      'javascript-performance.mdc' => 'frontend/javascript-performance.mdc',
+      'javascript-standards.mdc' => 'frontend/javascript-standards.mdc',
+      
+      // Drupal rules
+      'php-drupal-best-practices.mdc' => 'drupal/php-drupal-best-practices.mdc',
+      'php-drupal-development-standards.mdc' => 'drupal/php-drupal-development-standards.mdc',
+      'drupal-file-permissions.mdc' => 'drupal/drupal-file-permissions.mdc',
+      'php-memory-optimisation.mdc' => 'drupal/php-memory-optimisation.mdc',
+      
+      // WordPress rules
+      'php-wordpress-standards.mdc' => 'wordpress/php-wordpress-standards.mdc',
+      'php-wordpress-best-practices.mdc' => 'wordpress/php-wordpress-best-practices.mdc',
+      'php-wordpress-development-standards.mdc' => 'wordpress/php-wordpress-development-standards.mdc',
+      'wordpress-file-permissions.mdc' => 'wordpress/wordpress-file-permissions.mdc',
+      
+      // Backend rules
+      'typescript-node.mdc' => 'backend/typescript-node.mdc',
+      'python-data.mdc' => 'backend/python-data.mdc',
+      
+      // DevOps rules
+      'docker-compose-standards.mdc' => 'devops/docker-compose-standards.mdc',
+      'infra-devops.mdc' => 'devops/infra-devops.mdc',
+      'lagoon-docker-compose-standards.mdc' => 'devops/lagoon-docker-compose-standards.mdc',
+      'lagoon-yml-standards.mdc' => 'devops/lagoon-yml-standards.mdc',
+      'vortex-cicd-standards.mdc' => 'devops/vortex-cicd-standards.mdc',
+      'vortex-scaffold-standards.mdc' => 'devops/vortex-scaffold-standards.mdc',
+      
+      // Development rules
+      'api-standards.mdc' => 'development/api-standards.mdc',
+      'behat-ai-guide.mdc' => 'development/behat-ai-guide.mdc',
+      'behat-steps.mdc' => 'development/behat-steps.mdc',
+      'build-optimization.mdc' => 'development/build-optimization.mdc',
+      'code-generation-standards.mdc' => 'development/code-generation-standards.mdc',
+      'confluence-editing-standards.mdc' => 'development/confluence-editing-standards.mdc',
+      'debugging-standards.mdc' => 'development/debugging-standards.mdc',
+      'generic_bash_style.mdc' => 'development/generic_bash_style.mdc',
+      'messaging-queue-patterns.mdc' => 'development/messaging-queue-patterns.mdc',
+      'multi-agent-coordination.mdc' => 'development/multi-agent-coordination.mdc',
+      'new-pull-request.mdc' => 'development/new-pull-request.mdc',
+      'node-dependencies.mdc' => 'development/node-dependencies.mdc',
+      'project-definition-template.mdc' => 'development/project-definition-template.mdc',
+      'tests-documentation-maintenance.mdc' => 'development/tests-documentation-maintenance.mdc',
+      'third-party-integration.mdc' => 'development/third-party-integration.mdc',
+    ];
+    
+    return $path_map[$filename] ?? $filename;
+  }
+
+  // Define available rules (using old names for backward compatibility, will be mapped to new paths)
   $core_rules = [
     'cursor-rules.mdc',
     'git-commit-standards.mdc',
@@ -360,10 +485,10 @@ function install_cursor_rules(array $options = []): bool {
       echo "⚠️ Interactive mode not available when using curl piping (STDIN is already in use).\n";
       echo "Defaulting to core rules installation.\n\n";
       echo "For interactive installation with prompts, use the two-step process instead:\n";
-      echo "1. curl -s https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/install.php -o install.php\n";
+      echo "1. curl -s https://raw.githubusercontent.com/patilswapnilv/cursorrules/main/install.php -o install.php\n";
       echo "2. php install.php\n\n";
       echo "For specific options without interactive mode, use:\n";
-      echo "curl -s https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/install.php | php -- --help\n\n";
+      echo "curl -s https://raw.githubusercontent.com/patilswapnilv/cursorrules/main/install.php | php -- --help\n\n";
       $rules_to_install = $core_rules;
     } else if ($options['all']) {
       $rules_to_install = array_merge($core_rules, $web_stack_rules, $python_rules, $javascript_rules);
@@ -488,10 +613,12 @@ function install_cursor_rules(array $options = []): bool {
     }
 
     foreach ($rule_files as $file) {
-      if (file_exists($dir . '/' . $file)) {
+      $rule_path = get_rule_path($file);
+      // Try new path first, then fall back to old path
+      if (file_exists($dir . '/' . $rule_path) || file_exists($dir . '/' . $file)) {
         $found_files++;
         if (isset($options['debug']) && $options['debug']) {
-          echo "  Found rule file: $file\n";
+          echo "  Found rule file: " . (file_exists($dir . '/' . $rule_path) ? $rule_path : $file) . "\n";
         }
         if ($found_files >= $min_files) {
           return true;
@@ -525,7 +652,7 @@ function install_cursor_rules(array $options = []): bool {
   }
 
   // Try to download rules from GitHub if no local source is found
-  $github_source = 'https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/.cursor/rules/';
+  $github_base = 'https://raw.githubusercontent.com/patilswapnilv/cursorrules/main/.cursor/rules/';
   $temp_dir = sys_get_temp_dir() . '/cursor-rules-' . uniqid();
 
   // Find a valid source directory
@@ -559,20 +686,27 @@ function install_cursor_rules(array $options = []): bool {
     }
 
     foreach ($rules_to_install as $rule_file) {
-      $url = $github_source . $rule_file;
+      $rule_path = get_rule_path($rule_file);
+      $url = $github_base . $rule_path;
       $content = @file_get_contents($url);
 
       if ($content === false) {
         if ($options['debug']) {
-          echo "Failed to download: $rule_file\n";
+          echo "Failed to download: $rule_path\n";
         }
         $download_success = false;
         continue;
       }
 
-      file_put_contents($temp_dir . '/' . $rule_file, $content);
+      $dest_path = $temp_dir . '/' . $rule_path;
+      $dest_dir = dirname($dest_path);
+      if (!is_dir($dest_dir)) {
+        mkdir($dest_dir, 0755, true);
+      }
+      
+      file_put_contents($dest_path, $content);
       if ($options['debug']) {
-        echo "Downloaded: $rule_file\n";
+        echo "Downloaded: $rule_path\n";
       }
     }
 
@@ -587,7 +721,7 @@ function install_cursor_rules(array $options = []): bool {
       @rmdir($temp_dir);
 
       echo "Error: Could not download rules from GitHub. Please check your internet connection or try again later.\n";
-      echo "Alternatively, you can manually download the rules from https://github.com/ivangrynenko/cursor-rules\n";
+      echo "Alternatively, you can manually download the rules from https://github.com/patilswapnilv/cursorrules\n";
       return false;
     }
   }
@@ -620,7 +754,6 @@ function install_cursor_rules(array $options = []): bool {
     }
 
     $download_success = true;
-    $github_source = 'https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/.cursor/rules/';
 
     // Download all rules that need to be installed
     if ($options['debug']) {
@@ -628,28 +761,51 @@ function install_cursor_rules(array $options = []): bool {
     }
 
     foreach ($rules_to_install as $rule_file) {
-      $url = $github_source . $rule_file;
+      $rule_path = get_rule_path($rule_file);
+      $url = $github_base . $rule_path;
       $content = @file_get_contents($url);
 
       if ($content === false) {
         if ($options['debug']) {
-          echo "Failed to download: $rule_file\n";
+          echo "Failed to download: $rule_path\n";
         }
 
-        // Check if the file exists locally in the destination directory
-        if (file_exists($destination_dir . '/' . $rule_file)) {
+        // Check if the file exists locally in the destination directory (try both old and new paths)
+        $local_old = $destination_dir . '/' . $rule_file;
+        $local_new = $destination_dir . '/' . $rule_path;
+        if (file_exists($local_old)) {
           if ($options['debug']) {
-            echo "File exists locally, will use local copy: $rule_file\n";
+            echo "File exists locally (old path), will use local copy: $rule_file\n";
           }
-          // Copy the local file to the temp directory
-          copy($destination_dir . '/' . $rule_file, $temp_dir . '/' . $rule_file);
+          $dest_path = $temp_dir . '/' . $rule_path;
+          $dest_dir = dirname($dest_path);
+          if (!is_dir($dest_dir)) {
+            mkdir($dest_dir, 0755, true);
+          }
+          copy($local_old, $dest_path);
+        } elseif (file_exists($local_new)) {
+          if ($options['debug']) {
+            echo "File exists locally (new path), will use local copy: $rule_path\n";
+          }
+          $dest_path = $temp_dir . '/' . $rule_path;
+          $dest_dir = dirname($dest_path);
+          if (!is_dir($dest_dir)) {
+            mkdir($dest_dir, 0755, true);
+          }
+          copy($local_new, $dest_path);
         }
         continue;
       }
 
-      file_put_contents($temp_dir . '/' . $rule_file, $content);
+      $dest_path = $temp_dir . '/' . $rule_path;
+      $dest_dir = dirname($dest_path);
+      if (!is_dir($dest_dir)) {
+        mkdir($dest_dir, 0755, true);
+      }
+      
+      file_put_contents($dest_path, $content);
       if ($options['debug']) {
-        echo "Downloaded: $rule_file\n";
+        echo "Downloaded: $rule_path\n";
       }
     }
 
@@ -664,7 +820,7 @@ function install_cursor_rules(array $options = []): bool {
       @rmdir($temp_dir);
 
       echo "Error: Could not download rules from GitHub. Please check your internet connection or try again later.\n";
-      echo "Alternatively, you can manually download the rules from https://github.com/ivangrynenko/cursor-rules\n";
+      echo "Alternatively, you can manually download the rules from https://github.com/patilswapnilv/cursorrules\n";
       return false;
     }
   }
@@ -680,27 +836,44 @@ function install_cursor_rules(array $options = []): bool {
   }
 
   foreach ($rules_to_install as $rule_file) {
-    $source_file = $source_dir . '/' . $rule_file;
-    $dest_file = $destination_dir . '/' . $rule_file;
+    $rule_path = get_rule_path($rule_file);
+    
+    // Try new path first, then fall back to old path for backward compatibility
+    $source_file = $source_dir . '/' . $rule_path;
+    if (!file_exists($source_file)) {
+      $source_file = $source_dir . '/' . $rule_file;
+    }
+    
+    $dest_file = $destination_dir . '/' . $rule_path;
+    $dest_dir = dirname($dest_file);
     
     // Skip this rule if tag filtering is enabled and the rule doesn't match
     if (($options['tags'] || $options['tag-preset']) && !rule_matches_tag_filter($source_file, $options)) {
       if ($options['debug']) {
-        echo "Skipping due to tag filter: $rule_file\n";
+        echo "Skipping due to tag filter: $rule_path\n";
       }
       $filtered_count++;
       continue;
     }
     
     if (file_exists($source_file)) {
+      // Create destination directory if it doesn't exist
+      if (!is_dir($dest_dir)) {
+        if (!mkdir($dest_dir, 0755, true)) {
+          $failed_count++;
+          echo "Failed to create directory: $dest_dir\n";
+          continue;
+        }
+      }
+      
       if (copy($source_file, $dest_file)) {
         $copied_count++;
         if ($options['debug']) {
-          echo "Copied: $rule_file\n";
+          echo "Copied: $rule_path\n";
         }
       } else {
         $failed_count++;
-        echo "Failed to copy: $rule_file\n";
+        echo "Failed to copy: $rule_path\n";
       }
     } else {
       if ($options['debug']) {
@@ -779,7 +952,7 @@ function install_cursor_rules(array $options = []): bool {
           'details' => 'temporary directory creation failed',
         ];
       } else {
-        $commands_github_source = 'https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/.cursor/commands/';
+        $commands_github_source = 'https://raw.githubusercontent.com/patilswapnilv/cursorrules/main/.cursor/commands/';
         $downloaded_commands = 0;
         foreach (COMMAND_FILES as $command_file) {
           $url = $commands_github_source . $command_file;
@@ -952,7 +1125,7 @@ function install_cursor_rules(array $options = []): bool {
       }
     } else {
       // Try to download from GitHub
-      $github_ignore_base = 'https://raw.githubusercontent.com/ivangrynenko/cursor-rules/main/';
+      $github_ignore_base = 'https://raw.githubusercontent.com/patilswapnilv/cursorrules/main/';
       $ignore_files = ['.cursorignore', '.cursorindexingignore'];
       $downloaded_ignore_count = 0;
       
@@ -1139,7 +1312,7 @@ function install_cursor_rules(array $options = []): bool {
   }
   
   $update_content .= "\n## Source\n";
-  $update_content .= "Rules downloaded from: https://github.com/ivangrynenko/cursor-rules\n";
+  $update_content .= "Rules downloaded from: https://github.com/patilswapnilv/cursorrules\n";
   
   if (file_put_contents($update_file_path, $update_content)) {
     if ($options['debug']) {

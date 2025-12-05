@@ -1,0 +1,104 @@
+---
+description: WordPress file permissions security standards
+globs: *.dockerfile, *.sh, docker-compose.yml, Dockerfile
+---
+# WordPress File Permissions Security
+
+Standards for securing WordPress file permissions in Docker environments and production servers, ensuring proper security while maintaining functionality.
+
+## Rule Details
+
+- **Name:** wordpress_file_permissions
+
+- **Description:** Enforce secure file permissions for WordPress wp-config.php and critical directories
+
+## Filters
+- file extension pattern: `\.(dockerfile|sh|yml)$`
+- file name: `^Dockerfile$|^docker-compose\.yml$`
+- content: `(?i)chmod|chown|wordpress|wp-config\.php`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `chmod\s+(?!755)\d+\s+[^\n]*wp-content(?![^\n]*uploads)` – wp-content directory should have 755 permissions (read-only for group/others)
+  - pattern `chmod\s+(?!400|444)\d+\s+[^\n]*wp-config\.php` – wp-config.php should have 400 or 444 permissions (read-only for everyone)
+  - pattern `chmod\s+(?!755)\d+\s+[^\n]*wp-content/uploads` – wp-content/uploads directory should have 755 permissions with proper ownership
+  - pattern `chown\s+(?!www-data:www-data)[^\s]+\s+[^\n]*wp-content/uploads` – wp-content/uploads should be owned by the web server user (www-data:www-data)
+
+## Suggestions
+- Guidance:
+## WordPress File Permissions Security Best Practices
+
+### 1. Critical File Permissions
+- **wp-content directory**: 755 (drwxr-xr-x)
+- **wp-config.php**: 400 or 444 (r-------- or r--r--r--)
+- **wp-content/uploads**: 755 (drwxr-xr-x)
+- **wp-content/uploads/** (contents): 644 (rw-r--r--) for files, 755 (drwxr-xr-x) for directories
+- **wp-content/plugins**: 755 (drwxr-xr-x)
+- **wp-content/themes**: 755 (drwxr-xr-x)
+
+### 2. Ownership Configuration
+- **Web root**: application user (varies by environment)
+- **wp-content/uploads**: web server user (www-data:www-data)
+
+### 3. Implementation in Dockerfile
+```dockerfile
+# Set proper permissions for WordPress
+RUN mkdir -p /var/www/html/wp-content/uploads && \
+    chown www-data:www-data /var/www/html/wp-content/uploads && \
+    chmod 755 /var/www/html/wp-content && \
+    chmod 400 /var/www/html/wp-config.php && \
+    find /var/www/html/wp-content/uploads -type d -exec chmod 755 {} \; && \
+    find /var/www/html/wp-content/uploads -type f -exec chmod 644 {} \;
+```
+
+### 4. Permission Fix Script
+Create a script at `/app/scripts/custom/fix-wordpress-permissions.sh`:
+```bash
+#!/bin/bash
+
+# Exit on error
+set -e
+
+WEBROOT=${WEBROOT:-/var/www/html}
+
+echo "Setting WordPress file permissions..."
+
+# Ensure directories exist
+mkdir -p ${WEBROOT}/wp-content/uploads
+
+# Set ownership
+chown www-data:www-data ${WEBROOT}/wp-content/uploads
+
+# Set directory permissions
+chmod 755 ${WEBROOT}/wp-content
+chmod 755 ${WEBROOT}/wp-content/uploads
+find ${WEBROOT}/wp-content/uploads -type d -exec chmod 755 {} \;
+
+# Set file permissions
+chmod 400 ${WEBROOT}/wp-config.php
+find ${WEBROOT}/wp-content/uploads -type f -exec chmod 644 {} \;
+
+echo "WordPress file permissions set successfully."
+```
+
+### 5. Verify Permissions
+```bash
+# Check file permissions
+ls -la ${WEBROOT}/wp-config.php
+ls -la ${WEBROOT}/wp-content
+ls -la ${WEBROOT}/wp-content/uploads
+
+# Check WordPress status
+wp core verify-checksums
+```
+
+### 6. Security Considerations
+- Never set 777 permissions on any WordPress files or directories
+- Temporary files should be stored in wp-content/uploads when possible
+- Use WordPress's private file system for sensitive uploads
+- Implement file access controls through WordPress's permission system
+- Consider using file encryption for highly sensitive data
+
+## Metadata
+- Priority: high
+- Version: 1.2

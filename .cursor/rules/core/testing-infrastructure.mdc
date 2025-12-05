@@ -1,0 +1,270 @@
+---
+description: Infrastructure testing standards for Terraform, Kubernetes, and Docker configurations
+globs: *.tf, *.tfvars, *.yaml, *.yml, Dockerfile, docker-compose.yml, k8s/**/*.yaml
+alwaysApply: false
+tags:
+  - category:testing
+  - category:infrastructure
+  - framework:terraform
+  - framework:kubernetes
+  - framework:docker
+---
+# Infrastructure Testing Standards
+
+Enforces testing best practices for infrastructure as code including Terraform, Kubernetes, and Docker configurations.
+
+<rule>
+name: infrastructure_testing_standards
+description: Enforce testing best practices for infrastructure code including Terraform, Kubernetes, and Docker
+filters:
+  - type: file_extension
+    pattern: "\\.(tf|tfvars|yaml|yml)$"
+  - type: file_name
+    pattern: "Dockerfile|docker-compose\\.yml|.*\\.tf"
+  - type: file_path
+    pattern: ".*(terraform|kubernetes|k8s|infrastructure|infra).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Missing Terraform validation
+      - pattern: "resource\\s+\"[^\"]+\"\\s+\"[^\"]+\"\\s*\\{"
+        message: "Run 'terraform validate' and 'terraform fmt' before committing. Include validation in CI/CD pipeline."
+        
+      # Pattern 2: Hardcoded values in Terraform
+      - pattern: "resource\\s+\"[^\"]+\"\\s+\"[^\"]+\"\\s*\\{[^}]*=\\s*['\"][0-9]+['\"]"
+        message: "Use variables instead of hardcoded values. Make infrastructure configurable and reusable."
+        
+      # Pattern 3: Missing Kubernetes resource validation
+      - pattern: "apiVersion:\\s*['\"]v1['\"]|kind:\\s*(Deployment|Service|ConfigMap|Secret)"
+        message: "Validate Kubernetes manifests with 'kubectl apply --dry-run=client'. Include validation in CI/CD."
+        
+      # Pattern 4: Missing Docker health checks
+      - pattern: "FROM\\s+[^\\n]+\\n(?!.*HEALTHCHECK)"
+        message: "Add HEALTHCHECK instruction to Dockerfiles for production images. Enable container health monitoring."
+        
+      # Pattern 5: Missing resource limits in Kubernetes
+      - pattern: "resources:\\s*\\{|containers:"
+        message: "Define resource requests and limits for all containers. Prevent resource exhaustion and enable proper scheduling."
+
+  - type: suggest
+    message: |
+      **Infrastructure Testing Best Practices:**
+      
+      **Terraform Testing:**
+      - [ ] Run `terraform validate` before committing
+      - [ ] Run `terraform fmt` to format code
+      - [ ] Use `terraform plan` to preview changes
+      - [ ] Test with `terraform apply` in staging
+      - [ ] Use `terraform test` (Terraform 1.6+) for unit tests
+      - [ ] Use Terratest for integration tests
+      - [ ] Validate variable types and constraints
+      - [ ] Test with different variable combinations
+      
+      **Terraform Example:**
+      ```hcl
+      # variables.tf
+      variable "instance_type" {
+        type        = string
+        description = "EC2 instance type"
+        default     = "t3.micro"
+        
+        validation {
+          condition     = contains(["t3.micro", "t3.small", "t3.medium"], var.instance_type)
+          error_message = "Instance type must be t3.micro, t3.small, or t3.medium."
+        }
+      }
+      
+      # main.tf
+      resource "aws_instance" "web" {
+        ami           = var.ami_id
+        instance_type = var.instance_type
+        
+        tags = {
+          Name = var.instance_name
+        }
+      }
+      ```
+      
+      **Terratest Example:**
+      ```go
+      package test
+      
+      import (
+        "testing"
+        "github.com/gruntwork-io/terratest/modules/terraform"
+        "github.com/stretchr/testify/assert"
+      )
+      
+      func TestTerraformAwsInstance(t *testing.T) {
+        terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+          TerraformDir: "../examples/aws-instance",
+        })
+        
+        defer terraform.Destroy(t, terraformOptions)
+        terraform.InitAndApply(t, terraformOptions)
+        
+        instanceID := terraform.Output(t, terraformOptions, "instance_id")
+        assert.NotEmpty(t, instanceID)
+      }
+      ```
+      
+      **Kubernetes Testing:**
+      - [ ] Validate manifests with `kubectl apply --dry-run=client`
+      - [ ] Use `kubectl diff` to preview changes
+      - [ ] Test with `kubectl apply --dry-run=server` for server-side validation
+      - [ ] Use kubeval or kube-score for static analysis
+      - [ ] Test in staging cluster before production
+      - [ ] Validate resource limits and requests
+      - [ ] Test rolling updates and rollbacks
+      
+      **Kubernetes Example:**
+      ```yaml
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: web-app
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: web-app
+        template:
+          metadata:
+            labels:
+              app: web-app
+          spec:
+            containers:
+            - name: web
+              image: web-app:latest
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "200m"
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 8080
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                httpGet:
+                  path: /ready
+                  port: 8080
+                initialDelaySeconds: 5
+                periodSeconds: 5
+      ```
+      
+      **Validation Script:**
+      ```bash
+      #!/bin/bash
+      set -e
+      
+      echo "Validating Kubernetes manifests..."
+      kubectl apply --dry-run=client -f k8s/
+      
+      echo "Running kubeval..."
+      kubeval k8s/*.yaml
+      
+      echo "Running kube-score..."
+      kube-score score k8s/*.yaml
+      ```
+      
+      **Docker Testing:**
+      - [ ] Build images and test locally
+      - [ ] Run containers and test functionality
+      - [ ] Test health checks
+      - [ ] Validate image size
+      - [ ] Test multi-stage builds
+      - [ ] Test with different base images
+      - [ ] Validate security scanning
+      
+      **Dockerfile Example:**
+      ```dockerfile
+      FROM node:18-alpine AS builder
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm ci
+      COPY . .
+      RUN npm run build
+      
+      FROM node:18-alpine
+      WORKDIR /app
+      COPY --from=builder /app/dist ./dist
+      COPY --from=builder /app/node_modules ./node_modules
+      COPY package*.json ./
+      
+      EXPOSE 3000
+      HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+        CMD node healthcheck.js
+      
+      CMD ["node", "dist/index.js"]
+      ```
+      
+      **Docker Testing Script:**
+      ```bash
+      #!/bin/bash
+      set -e
+      
+      IMAGE_NAME="my-app:test"
+      
+      echo "Building image..."
+      docker build -t $IMAGE_NAME .
+      
+      echo "Testing image..."
+      docker run -d --name test-container $IMAGE_NAME
+      
+      echo "Waiting for health check..."
+      sleep 10
+      
+      echo "Checking health..."
+      docker inspect --format='{{.State.Health.Status}}' test-container
+      
+      echo "Cleaning up..."
+      docker stop test-container
+      docker rm test-container
+      ```
+      
+      **CI/CD Integration:**
+      - [ ] Run infrastructure tests in CI/CD pipeline
+      - [ ] Validate before applying changes
+      - [ ] Test in staging before production
+      - [ ] Use infrastructure testing tools (Terratest, Kitchen-Terraform)
+      - [ ] Automate security scanning
+      - [ ] Test rollback procedures
+      
+      **GitHub Actions Example:**
+      ```yaml
+      name: Infrastructure Tests
+      
+      on: [push, pull_request]
+      
+      jobs:
+        terraform:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v3
+            - uses: hashicorp/setup-terraform@v2
+            - name: Terraform Validate
+              run: terraform validate
+            - name: Terraform Format Check
+              run: terraform fmt -check
+              
+        kubernetes:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v3
+            - name: Validate K8s Manifests
+              run: |
+                kubectl apply --dry-run=client -f k8s/
+                kubeval k8s/*.yaml
+      ```
+
+metadata:
+  priority: high
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

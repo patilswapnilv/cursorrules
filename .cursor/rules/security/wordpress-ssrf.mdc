@@ -1,0 +1,97 @@
+---
+description: Detect and prevent Server-Side Request Forgery (SSRF) vulnerabilities in WordPress applications as defined in OWASP Top 10:2021-A10
+globs: *.php, functions.php
+alwaysApply: false
+---
+# WordPress Server-Side Request Forgery Standards (OWASP A10:2021)
+
+This rule enforces security best practices to prevent Server-Side Request Forgery (SSRF) vulnerabilities in WordPress applications, as defined in OWASP Top 10:2021-A10.
+
+## Rule Details
+
+- **Name:** wordpress_ssrf
+
+- **Description:** Detect and prevent Server-Side Request Forgery (SSRF) vulnerabilities in WordPress applications as defined in OWASP Top 10:2021-A10
+
+## Filters
+- file extension pattern: `\.(php)$`
+- file path pattern: `.*(wp-content|plugins|themes|functions).*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `(file_get_contents|fopen|curl_exec|wp_remote_get|wp_remote_post)\s*\([^)]*\$_GET[^)]*\)|(file_get_contents|fopen|curl_exec|wp_remote_get|wp_remote_post)\s*\([^)]*\$_POST[^)]*\)` – Potential SSRF vulnerability: URL constructed with user input. Validate and sanitize user-supplied URL parameters before making requests.
+    - Pattern 1: Unsafe URL construction with user input
+  - pattern `wp_remote_get\([^,]*\$|wp_remote_post\([^,]*\$` – Validate and restrict URLs before making HTTP requests with wp_remote_* functions to prevent SSRF attacks.
+    - Pattern 2: Unsafe WordPress HTTP API usage
+  - pattern `(wp_remote_get|wp_remote_post|file_get_contents|curl_exec)\s*\([^)]*(http|\$[a-zA-Z0-9_]+)[^)]*\)[^;]*;(?![^;]*(valid|check|sanitize|wp_http_validate_url|esc_url_raw))` – HTTP requests should validate URLs with wp_http_validate_url() or esc_url_raw() before execution to prevent SSRF.
+    - Pattern 3: Missing URL validation before making HTTP requests
+  - pattern `(https?:?//|www\.)\s*\.\s*\$[a-zA-Z0-9_]+` – Potential SSRF vulnerability: URL being constructed with variable concatenation. Use URL validation and allowlisting.
+    - Pattern 4: Unsafe URL construction with variable input
+  - pattern `file_get_contents\(["'](?:http|https|ftp|php|data|expect|zip|phar)://` – Avoid using PHP wrappers with file operations that could lead to SSRF vulnerabilities.
+    - Pattern 5: Using file system wrappers which can lead to SSRF
+  - pattern `CURLOPT_PROXY[^;]*none|CURLOPT_PROXY[^;]*null` – Bypassing proxy settings can lead to SSRF vulnerabilities. Maintain proper proxy configurations.
+    - Pattern 6: Bypassing local proxy settings
+  - pattern `simplexml_load_|DOMDocument|SimpleXMLElement|xml_parse` – XML processing without disabling external entities can lead to XXE and SSRF. Use libxml_disable_entity_loader(true).
+    - Pattern 7: Unsafe processing of XML with external entities
+  - pattern `(127\.0\.0\.1|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|169\.254\.[0-9]{1,3}\.[0-9]{1,3}|localhost)` – Hardcoded internal IP addresses or localhost may facilitate SSRF attacks if exposed to user manipulation.
+    - Pattern 8: Accessing or using internal network IPs
+  - pattern `wp_remote_get\(|wp_remote_post\(` – Always validate URLs with wp_http_validate_url() or esc_url_raw() before making HTTP requests with WordPress HTTP API.
+    - Pattern 9: WordPress HTTP API usage without validation
+  - pattern `curl_setopt\([^,]+,\s*CURLOPT_PORT,\s*\$[a-zA-Z0-9_]+` – Potential SSRF vulnerability: Restrict allowed ports for outbound HTTP requests to prevent service probing.
+    - Pattern 10: Allowing unrestricted ports in HTTP requests
+
+## Suggestions
+- Guidance:
+**WordPress SSRF Prevention Best Practices:**
+
+1. **Input Validation for URLs:**
+   - Always validate any user-supplied URL or URL components
+   - Use wp_http_validate_url() or esc_url_raw() to validate URLs
+   - Implement allowlists rather than blocklists for domains/IPs
+   - Parse URLs and validate each component (protocol, domain, port, path)
+
+2. **Network-Level Controls:**
+   - Implement network-level access controls for internal services
+   - Use application firewalls to restrict outbound connections
+   - Configure proxies to control and monitor outbound requests
+   - Segment sensitive internal services from public-facing applications
+
+3. **Request Handling:**
+   - Avoid passing raw user input to HTTP clients
+   - Set reasonable timeouts for all HTTP requests using wp_remote_* timeout parameter
+   - Disable HTTP redirects or limit redirect chains
+   - Validate response types match expected formats
+   - Use dedicated service accounts with minimal privileges for API calls
+
+4. **WordPress-Specific Controls:**
+   - Utilize WordPress's wp_http_validate_url() for URL validation
+   - Configure wp_remote_* functions with appropriate security options
+   - Consider using filters to enforce URL validation
+   - Use WordPress's logging system to record suspicious outbound requests
+   - Implement specific content security policies
+
+5. **Authentication and Access Controls:**
+   - Implement proper authentication for internal service calls
+   - Use context-specific API tokens with limited privileges
+   - Avoid exposing service credentials in code or configurations
+   - Implement rate limiting for outbound requests
+
+## Validation Checks
+- Conditions:
+  - pattern `wp_http_validate_url\([^)]+\)|esc_url_raw\([^)]+\)` – Using proper URL validation with WordPress functions.
+    - Check 1: Proper URL validation
+  - pattern `array_intersect|in_array|allowlist|whitelist` – Implementing domain/URL allowlisting for outbound requests.
+    - Check 2: Allowlisting domains
+  - pattern `libxml_disable_entity_loader\(true\)` – Properly disabling XML external entities.
+    - Check 3: Safe XML processing
+  - pattern `wp_remote_get\([^)]*,\s*\[[^\]]*timeout[^\]]*\]\)|wp_remote_post\([^)]*,\s*\[[^\]]*timeout[^\]]*\]\)` – Using WordPress HTTP API with explicit options.
+    - Check 4: Using WordPress HTTP API safely
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, ssrf, owasp, language:php, framework:wordpress, category:security, subcategory:ssrf, standard:owasp-top10, risk:a10-ssrf
+## References
+- https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/
+- https://developer.wordpress.org/reference/functions/wp_remote_get/
+- https://developer.wordpress.org/reference/functions/wp_http_validate_url/

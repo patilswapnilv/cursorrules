@@ -64,6 +64,9 @@ Framework tags specify the framework or CMS the rule targets:
 - `framework:django`
 - `framework:fastapi`
 - `framework:flask`
+- `framework:prisma` - Prisma ORM
+- `framework:bullmq` - BullMQ job queue
+- `framework:rabbitmq` - RabbitMQ message broker
 
 ### Category Tags
 
@@ -103,6 +106,12 @@ For `category:performance`:
 - `subcategory:database`
 - `subcategory:assets`
 - `subcategory:memory-management`
+
+For `category:best-practice`:
+- `subcategory:data-pipeline` - Data processing and ETL pipelines
+- `subcategory:ml-ai` - Machine learning and AI development
+- `subcategory:message-queue` - Message queue and job processing patterns
+- `subcategory:background-jobs` - Background job processing and workers
 
 For `category:accessibility`:
 - `subcategory:screen-readers`

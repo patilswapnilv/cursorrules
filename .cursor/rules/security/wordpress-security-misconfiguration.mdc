@@ -1,0 +1,98 @@
+---
+description: Detect and prevent security misconfigurations in WordPress as defined in OWASP Top 10:2021-A05
+globs: *.php, wp-config.php, .htaccess
+alwaysApply: false
+---
+# WordPress Security Misconfiguration Standards (OWASP A05:2021)
+
+This rule enforces security best practices to prevent misconfiguration vulnerabilities in WordPress applications, as defined in OWASP Top 10:2021-A05.
+
+## Rule Details
+
+- **Name:** wordpress_security_misconfiguration
+
+- **Description:** Detect and prevent security misconfigurations in WordPress as defined in OWASP Top 10:2021-A05
+
+## Filters
+- file extension pattern: `\.(php|htaccess)$`
+- file path pattern: `.*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `WP_DEBUG\s*=\s*TRUE|define\(['"]WP_DEBUG['"],\s*TRUE\)|define\(['"]SCRIPT_DEBUG['"],\s*TRUE\)` – Development settings detected in production code. Ensure these settings are only enabled in development environments.
+    - Pattern 1: Development settings in production code
+  - pattern `wp-config\.php` – Verify that DISALLOW_FILE_EDIT, FORCE_SSL_ADMIN, and other security constants are properly configured.
+    - Pattern 2: Missing or weak security constants
+  - pattern `WP_DEBUG_DISPLAY\s*=\s*TRUE|define\(['"]WP_DEBUG_DISPLAY['"],\s*TRUE\)|ini_set\(['"]display_errors['"]\s*,\s*['"]1['"]\)` – Error display should be disabled in production. Set WP_DEBUG_DISPLAY to false in production.
+    - Pattern 3: Debugging/error display enabled
+  - pattern `chmod\s+777|chmod\s+666|file_permissions\s*=\s*['"]777['"]` – Excessively permissive file permissions detected. Use more restrictive permissions (755 for directories, 644 for files).
+    - Pattern 4: Insecure file permissions settings
+  - pattern `\.htaccess|wp-config\.php` – Ensure Content-Security-Policy headers are properly configured to prevent XSS attacks.
+    - Pattern 5: Disabled or misconfigured CSP headers
+  - pattern `COOKIE_DOMAIN|COOKIEPATH|SITECOOKIEPATH` – Session cookies should be secure and HTTP-only in production environments. Configure FORCE_SSL_ADMIN.
+    - Pattern 6: Insecure session cookie settings
+  - pattern `wp-config\.php` – Ensure DISALLOW_FILE_EDIT is set to prevent file editing from admin area.
+    - Pattern 7: Missing or misconfigured file editing restrictions
+  - pattern `active_plugins|get_option\(['"]active_plugins['"]\)` – Check for development plugins (query-monitor, debug-bar, etc.) that should not be enabled in production.
+    - Pattern 8: Development plugins enabled in production
+  - pattern `function\s+[a-zA-Z0-9_]+_activation\(\)` – Remove or secure default/demo content and users in production environments.
+    - Pattern 9: Default or demo content in production
+  - pattern `\.htaccess|nginx\.conf` – Verify X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, and Referrer-Policy headers are properly configured.
+    - Pattern 10: Missing or misconfigured security headers
+
+## Suggestions
+- Guidance:
+**WordPress Security Configuration Best Practices:**
+
+1. **Environment-Specific Configurations:**
+   - Use environment-specific wp-config.php settings
+   - Maintain separate development, staging, and production configurations
+   - Never enable development settings in production: WP_DEBUG, SCRIPT_DEBUG, etc.
+   - Use environment variables or secrets management for sensitive information
+
+2. **Essential Security Settings:**
+   - Configure DISALLOW_FILE_EDIT to prevent file editing from admin
+   - Set FORCE_SSL_ADMIN to enforce HTTPS for admin area
+   - Configure secure file permissions (e.g., 755 for directories, 644 for files)
+   - Set WP_DEBUG to false and WP_DEBUG_DISPLAY to false in production
+   - Implement proper database table prefix (not 'wp_')
+
+3. **Error Handling:**
+   - Disable verbose error reporting in production with WP_DEBUG = false
+   - Configure custom error pages that don't leak system information
+   - Implement appropriate logging without exposing sensitive data
+   - Use WP_DEBUG_LOG for logging errors to file
+
+4. **Security Headers:**
+   - Set Content-Security-Policy to restrict resource origins
+   - Configure X-Frame-Options to prevent clickjacking
+   - Enable X-Content-Type-Options to prevent MIME-type sniffing
+   - Set Referrer-Policy to control information in HTTP referers
+   - Implement Strict-Transport-Security (HSTS) headers
+
+5. **Plugin & Theme Security:**
+   - Disable and uninstall unnecessary plugins in production
+   - Keep core, plugins, and themes updated
+   - Remove development plugins from production (query-monitor, debug-bar, etc.)
+   - Implement proper configuration management workflows
+   - Use security plugins for additional protection
+
+## Validation Checks
+- Conditions:
+  - pattern `define\(['"]DISALLOW_FILE_EDIT['"],\s*TRUE\)|define\(['"]FORCE_SSL_ADMIN['"],\s*TRUE\)` – Security constants are properly configured.
+    - Check 1: Proper security constants
+  - pattern `define\(['"]FORCE_SSL_ADMIN['"],\s*TRUE\)|is_ssl\(\)` – Secure cookie settings are properly configured.
+    - Check 2: Secure session cookie settings
+  - pattern `define\(['"]WP_DEBUG['"],\s*FALSE\)|WP_DEBUG\s*=\s*FALSE` – Error reporting is properly configured for production.
+    - Check 3: Production error settings
+  - pattern `table_prefix\s*=\s*['"][^'"]+['"]` – Database table prefix is configured (not default 'wp_').
+    - Check 4: Secure database configuration
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, configuration, misconfiguration, owasp, language:php, framework:wordpress, category:security, subcategory:configuration, standard:owasp-top10, risk:a05-misconfiguration
+## References
+- https://owasp.org/Top10/A05_2021-Security_Misconfiguration/
+- https://wordpress.org/support/article/hardening-wordpress/
+- https://developer.wordpress.org/advanced-administration/security/hardening/

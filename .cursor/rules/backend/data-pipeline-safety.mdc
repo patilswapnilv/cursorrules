@@ -1,0 +1,262 @@
+---
+description: Data pipeline safety standards for ETL operations, error handling, data validation, and idempotency
+globs: *.py, pipelines/**/*.py, etl/**/*.py, data/**/*.py, *.sql
+alwaysApply: false
+tags:
+  - category:data-pipeline
+  - category:safety
+  - category:best-practice
+  - language:python
+  - standard:etl
+  - risk:high
+---
+# Data Pipeline Safety Standards
+
+Enforces safety practices for data pipelines including ETL error handling, data validation, idempotency requirements, and data retention policies.
+
+<rule>
+name: data_pipeline_safety
+description: Enforce data pipeline safety practices including error handling, validation, idempotency, and data retention
+filters:
+  - type: file_extension
+    pattern: "\\.(py|sql)$"
+  - type: file_path
+    pattern: ".*(pipeline|etl|extract|transform|load|data[_-]?pipeline).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Missing error handling in data operations
+      - pattern: "(pd\\.read_|pandas\\.read_|sqlalchemy\\.|psycopg2\\.|pymongo\\.|requests\\.get|requests\\.post)(?!.*try|.*except|.*catch)"
+        message: "Data operations should be wrapped in try-except blocks with proper error handling and logging."
+        
+      # Pattern 2: Missing data validation
+      - pattern: "df\\s*=\\s*(pd\\.read_|pandas\\.read_|sqlalchemy\\.|psycopg2\\.)"
+        message: "Validate data after loading: check for nulls, data types, required columns, and data quality."
+        
+      # Pattern 3: Non-idempotent operations
+      - pattern: "(INSERT|UPDATE|DELETE)\\s+INTO|df\\.to_sql\\(|collection\\.insert|db\\.insert"
+        message: "Ensure data pipeline operations are idempotent. Use UPSERT, check existence before insert, or use unique constraints."
+        
+      # Pattern 4: Missing transaction management
+      - pattern: "(INSERT|UPDATE|DELETE|CREATE|ALTER)\\s+.*(?!.*BEGIN|.*COMMIT|.*transaction|.*rollback)"
+        message: "Wrap data modifications in transactions. Use database transactions or atomic operations for data consistency."
+        
+      # Pattern 5: Hardcoded file paths or connection strings
+      - pattern: "(pd\\.read_|pandas\\.read_|open\\(|sqlalchemy\\.create_engine|psycopg2\\.connect)\\(['\"][^'\"]+['\"]"
+        message: "Use environment variables or configuration files for file paths and database connections. Never hardcode sensitive information."
+        
+      # Pattern 6: Missing data retention/deletion logic
+      - pattern: "(INSERT|CREATE|LOAD|IMPORT)\\s+.*(?!.*DELETE|.*DROP|.*retention|.*expire|.*TTL)"
+        message: "Implement data retention policies. Define how long data should be kept and when it should be deleted."
+        
+      # Pattern 7: Missing checkpoint/resume logic
+      - pattern: "for\\s+.*in\\s+.*:|while\\s+.*:|\.map\\(|\.apply\\(|\.transform\\("
+        message: "For long-running pipelines, implement checkpoint/resume logic to handle failures and avoid reprocessing."
+
+  - type: reject
+    conditions:
+      # Reject: Direct production data modifications without validation
+      - pattern: "(DROP|TRUNCATE|DELETE\\s+FROM)\\s+.*PRODUCTION|--\\s*TODO.*production"
+        message: "Never apply destructive operations directly to production data. Use staging environment and proper validation first."
+        
+      # Reject: Missing error handling in critical operations
+      - pattern: "(pd\\.read_|sqlalchemy\\.|psycopg2\\.|pymongo\\.)\\([^)]*\\)(?!.*try|.*except)"
+        message: "Critical data operations must have error handling. Wrap in try-except blocks with proper logging and recovery."
+
+  - type: suggest
+    message: |
+      **Data Pipeline Safety Checklist:**
+      
+      **ETL Error Handling and Recovery:**
+      - [ ] Wrap all data operations in try-except blocks
+      - [ ] Log errors with context: file name, row number, error message
+      - [ ] Implement retry logic for transient failures (network, timeouts)
+      - [ ] Use exponential backoff for retries
+      - [ ] Handle partial failures gracefully (process valid rows, skip invalid)
+      - [ ] Send alerts for critical failures
+      - [ ] Implement dead letter queues for failed records
+      
+      **Python Example:**
+      ```python
+      import logging
+      from tenacity import retry, stop_after_attempt, wait_exponential
+      
+      logger = logging.getLogger(__name__)
+      
+      @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+      )
+      def load_data(source):
+        try:
+          df = pd.read_csv(source)
+          validate_data(df)
+          return df
+        except FileNotFoundError as e:
+          logger.error(f"File not found: {source}", exc_info=True)
+          raise
+        except pd.errors.EmptyDataError as e:
+          logger.warning(f"Empty file: {source}")
+          return pd.DataFrame()
+        except Exception as e:
+          logger.error(f"Unexpected error loading {source}: {e}", exc_info=True)
+          raise
+      ```
+      
+      **Data Validation Patterns:**
+      - [ ] Validate data types and formats
+      - [ ] Check for required columns
+      - [ ] Validate data ranges and constraints
+      - [ ] Check for duplicates
+      - [ ] Validate referential integrity
+      - [ ] Check data quality metrics (completeness, accuracy, consistency)
+      - [ ] Generate data quality reports
+      
+      **Python Example:**
+      ```python
+      def validate_data(df):
+        # Check required columns
+        required_columns = ['id', 'name', 'email']
+        missing = set(required_columns) - set(df.columns)
+        if missing:
+          raise ValueError(f"Missing required columns: {missing}")
+        
+        # Check for nulls in required fields
+        null_counts = df[required_columns].isnull().sum()
+        if null_counts.any():
+          raise ValueError(f"Null values in required columns: {null_counts[null_counts > 0].to_dict()}")
+        
+        # Validate data types
+        if not df['id'].dtype == 'int64':
+          raise ValueError("Column 'id' must be integer")
+        
+        # Check for duplicates
+        duplicates = df[df.duplicated(subset=['id'], keep=False)]
+        if not duplicates.empty:
+          logger.warning(f"Found {len(duplicates)} duplicate IDs")
+        
+        # Validate email format
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        invalid_emails = df[~df['email'].str.match(email_pattern, na=False)]
+        if not invalid_emails.empty:
+          raise ValueError(f"Invalid email format: {len(invalid_emails)} rows")
+      ```
+      
+      **Idempotency Requirements:**
+      - [ ] Use UPSERT operations (INSERT ... ON CONFLICT)
+      - [ ] Check existence before insert
+      - [ ] Use unique constraints to prevent duplicates
+      - [ ] Implement idempotent keys (e.g., hash of input data)
+      - [ ] Track processed records to avoid reprocessing
+      - [ ] Use idempotent file processing (track processed files)
+      
+      **Python Example:**
+      ```python
+      def load_data_idempotent(df, table_name, unique_key='id'):
+        # Check which records already exist
+        existing_ids = pd.read_sql(
+          f"SELECT {unique_key} FROM {table_name}",
+          con=engine
+        )[unique_key].tolist()
+        
+        # Filter out existing records
+        new_df = df[~df[unique_key].isin(existing_ids)]
+        
+        if not new_df.empty:
+          new_df.to_sql(table_name, con=engine, if_exists='append', index=False)
+          logger.info(f"Inserted {len(new_df)} new records")
+        else:
+          logger.info("No new records to insert")
+      ```
+      
+      **SQL Example (PostgreSQL):**
+      ```sql
+      INSERT INTO users (id, name, email)
+      VALUES (1, 'John', 'john@example.com')
+      ON CONFLICT (id) 
+      DO UPDATE SET 
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        updated_at = NOW();
+      ```
+      
+      **Data Retention Policies:**
+      - [ ] Define retention periods for different data types
+      - [ ] Implement automated data deletion/archival
+      - [ ] Archive old data before deletion
+      - [ ] Document retention policies
+      - [ ] Comply with data protection regulations (GDPR, etc.)
+      - [ ] Implement soft deletes where appropriate
+      
+      **Python Example:**
+      ```python
+      from datetime import datetime, timedelta
+      
+      def cleanup_old_data(table_name, retention_days=90):
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        
+        # Archive before deletion
+        archive_query = f"""
+          INSERT INTO {table_name}_archive
+          SELECT * FROM {table_name}
+          WHERE created_at < %s
+        """
+        
+        # Delete old data
+        delete_query = f"""
+          DELETE FROM {table_name}
+          WHERE created_at < %s
+        """
+        
+        with engine.begin() as conn:
+          conn.execute(archive_query, (cutoff_date,))
+          deleted = conn.execute(delete_query, (cutoff_date,))
+          logger.info(f"Archived and deleted {deleted.rowcount} records older than {retention_days} days")
+      ```
+      
+      **Checkpoint/Resume Logic:**
+      - [ ] Track processed files/records
+      - [ ] Store checkpoint state (database, file, cache)
+      - [ ] Resume from last checkpoint on failure
+      - [ ] Implement progress tracking
+      - [ ] Handle partial processing
+      
+      **Python Example:**
+      ```python
+      import json
+      from pathlib import Path
+      
+      CHECKPOINT_FILE = 'checkpoint.json'
+      
+      def load_checkpoint():
+        if Path(CHECKPOINT_FILE).exists():
+          with open(CHECKPOINT_FILE) as f:
+            return json.load(f)
+        return {'processed_files': [], 'last_record_id': 0}
+      
+      def save_checkpoint(state):
+        with open(CHECKPOINT_FILE, 'w') as f:
+          json.dump(state, f)
+      
+      def process_files(files, checkpoint):
+        processed = checkpoint['processed_files']
+        for file in files:
+          if file in processed:
+            logger.info(f"Skipping already processed file: {file}")
+            continue
+          
+          try:
+            process_file(file)
+            processed.append(file)
+            save_checkpoint({'processed_files': processed})
+          except Exception as e:
+            logger.error(f"Error processing {file}: {e}")
+            raise
+      ```
+
+metadata:
+  priority: critical
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

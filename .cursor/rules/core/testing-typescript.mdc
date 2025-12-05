@@ -1,0 +1,193 @@
+---
+description: TypeScript/JavaScript testing standards using Jest, Vitest, and testing-library
+globs: *.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx, *.test.js, *.spec.js
+alwaysApply: false
+tags:
+  - language:typescript
+  - language:javascript
+  - category:testing
+  - framework:jest
+  - framework:vitest
+  - framework:testing-library
+---
+# TypeScript/JavaScript Testing Standards
+
+Enforces testing best practices for TypeScript and JavaScript projects using Jest, Vitest, and testing-library.
+
+<rule>
+name: typescript_testing_standards
+description: Enforce testing best practices for TypeScript/JavaScript including Jest, Vitest, and testing-library patterns
+filters:
+  - type: file_extension
+    pattern: "\\.(test|spec)\\.(ts|tsx|js|jsx)$"
+  - type: file_path
+    pattern: ".*(test|spec|__tests__).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Missing test descriptions
+      - pattern: "(test|it|describe)\\(['\"][^'\"]*['\"]|(test|it|describe)\\(`[^`]*`"
+        message: "Use descriptive test names that explain what is being tested. Follow pattern: 'should [expected behavior] when [condition]'."
+        
+      # Pattern 2: Missing async/await in async tests
+      - pattern: "(test|it)\\([^)]*async[^)]*\\)\\s*\\{[^}]*fetch\\(|(test|it)\\([^)]*async[^)]*\\)\\s*\\{[^}]*await\\s+[^}]*\\.then\\("
+        message: "Use async/await instead of .then() in async tests. Prefer: 'await fetch()' over 'fetch().then()'."
+        
+      # Pattern 3: Missing error assertions
+      - pattern: "expect\\([^)]*\\)\\.toThrow\\(\\)|expect\\([^)]*\\)\\.rejects\\.toThrow\\(\\)"
+        message: "When testing error cases, assert the specific error message or error type. Use: expect().toThrow('specific error message')."
+        
+      # Pattern 4: Hardcoded values in tests
+      - pattern: "expect\\([^)]*\\)\\.toBe\\(['\"][0-9]+['\"]\\)|expect\\([^)]*\\)\\.toEqual\\(['\"][^'\"]+['\"]\\)"
+        message: "Use constants or test fixtures instead of hardcoded values. Make tests more maintainable and readable."
+        
+      # Pattern 5: Missing cleanup in tests
+      - pattern: "(beforeEach|afterEach|beforeAll|afterAll)\\([^)]*\\)"
+        message: "Use beforeEach/afterEach for test setup and cleanup. Clean up mocks, timers, and side effects."
+        
+      # Pattern 6: Testing implementation details
+      - pattern: "expect\\([^)]*\\)\\.toHaveBeenCalledWith\\([^)]*\\)|expect\\([^)]*\\)\\.toHaveBeenCalledTimes\\("
+        message: "Test behavior, not implementation. Focus on what the code does, not how it does it. Avoid testing internal method calls."
+
+  - type: suggest
+    message: |
+      **TypeScript/JavaScript Testing Best Practices:**
+      
+      **Test Structure:**
+      - Use `describe` blocks to group related tests
+      - Use descriptive test names: "should [expected behavior] when [condition]"
+      - Follow AAA pattern: Arrange, Act, Assert
+      - Keep tests focused on one behavior
+      - Use `beforeEach`/`afterEach` for setup and cleanup
+      
+      **Jest/Vitest Example:**
+      ```typescript
+      import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+      import { render, screen, cleanup } from '@testing-library/react';
+      
+      describe('UserService', () => {
+        beforeEach(() => {
+          // Setup before each test
+          vi.clearAllMocks();
+        });
+        
+        afterEach(() => {
+          // Cleanup after each test
+          cleanup();
+        });
+        
+        it('should return user when user exists', async () => {
+          // Arrange
+          const userId = '123';
+          const mockUser = { id: userId, name: 'John' };
+          vi.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+          
+          // Act
+          const result = await userService.getUser(userId);
+          
+          // Assert
+          expect(result).toEqual(mockUser);
+          expect(userRepository.findById).toHaveBeenCalledWith(userId);
+        });
+        
+        it('should throw error when user not found', async () => {
+          // Arrange
+          const userId = '999';
+          vi.spyOn(userRepository, 'findById').mockResolvedValue(null);
+          
+          // Act & Assert
+          await expect(userService.getUser(userId)).rejects.toThrow('User not found');
+        });
+      });
+      ```
+      
+      **React Testing Library:**
+      - Test components from user's perspective
+      - Use queries that users would use (getByRole, getByLabelText)
+      - Avoid testing implementation details
+      - Test accessibility and user interactions
+      
+      **Example:**
+      ```typescript
+      import { render, screen, fireEvent } from '@testing-library/react';
+      import { UserForm } from './UserForm';
+      
+      describe('UserForm', () => {
+        it('should submit form with user data', async () => {
+          // Arrange
+          const onSubmit = vi.fn();
+          render(<UserForm onSubmit={onSubmit} />);
+          
+          // Act
+          fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'John' } });
+          fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'john@example.com' } });
+          fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+          
+          // Assert
+          await waitFor(() => {
+            expect(onSubmit).toHaveBeenCalledWith({
+              name: 'John',
+              email: 'john@example.com'
+            });
+          });
+        });
+      });
+      ```
+      
+      **Mocking:**
+      - Mock external dependencies (APIs, databases, file system)
+      - Use `vi.spyOn` for partial mocking
+      - Use `vi.mock` for module mocking
+      - Reset mocks between tests
+      
+      **Example:**
+      ```typescript
+      import { vi } from 'vitest';
+      
+      // Mock module
+      vi.mock('./api', () => ({
+        fetchUser: vi.fn()
+      }));
+      
+      // Spy on method
+      const fetchSpy = vi.spyOn(global, 'fetch');
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: '1', name: 'John' })
+      });
+      ```
+      
+      **Async Testing:**
+      - Use async/await for async operations
+      - Use `waitFor` for DOM updates
+      - Use `findBy*` queries for async elements
+      - Handle promises correctly
+      
+      **Example:**
+      ```typescript
+      it('should load user data', async () => {
+        render(<UserProfile userId="123" />);
+        
+        // Wait for async data to load
+        const userName = await screen.findByText('John Doe');
+        expect(userName).toBeInTheDocument();
+      });
+      ```
+      
+      **Test Coverage:**
+      - Aim for high coverage (80%+)
+      - Focus on critical paths
+      - Test edge cases and error conditions
+      - Use coverage reports to identify gaps
+      
+      **Performance Testing:**
+      - Use `vi.useFakeTimers()` for time-dependent tests
+      - Test performance-critical code
+      - Use `performance.now()` for timing measurements
+
+metadata:
+  priority: high
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

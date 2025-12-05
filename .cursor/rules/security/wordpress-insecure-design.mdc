@@ -1,0 +1,100 @@
+---
+description: Detect and prevent insecure design patterns in WordPress as defined in OWASP Top 10:2021-A04
+globs: *.php, functions.php
+alwaysApply: false
+---
+# WordPress Insecure Design Security Standards (OWASP A04:2021)
+
+This rule enforces security best practices to prevent insecure design vulnerabilities in WordPress applications, as defined in OWASP Top 10:2021-A04.
+
+## Rule Details
+
+- **Name:** wordpress_insecure_design
+
+- **Description:** Detect and prevent insecure design patterns in WordPress as defined in OWASP Top 10:2021-A04
+
+## Filters
+- file extension pattern: `\.(php)$`
+- file path pattern: `.*(wp-content|plugins|themes|functions).*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `add_cap\(['"][^'"]+['"]\)|register_post_type\([^)]*capability_type` – Capabilities should follow WordPress naming patterns and be specific. Avoid overly broad capabilities.
+    - Pattern 1: Insecure capability design
+  - pattern `if\s*\([^\)]*===?\s*['"][a-zA-Z0-9_]+['"]\s*\)` – Consider moving business logic rules to options/settings to allow for proper adjustment without code changes.
+    - Pattern 2: Hard-coded business logic values
+  - pattern `preg_replace|str_replace|strip_tags` – Avoid ad hoc sanitization. Use WordPress's built-in sanitization tools: sanitize_text_field(), esc_html(), etc.
+    - Pattern 3: Ad hoc input sanitization
+  - pattern `class\s+[a-zA-Z0-9_]+\s*\{[^}]*\$wpdb->query\(` – Follow separation of concerns. Move database logic to dedicated classes or functions, not in main plugin classes.
+    - Pattern 4: Database logic in main classes
+  - pattern `function\s+[a-zA-Z0-9_]+_capabilities\([^)]*\)\s*\{[^}]*return\s+\[[^\]]*'administrator'[^\]]*\]` – Avoid granting administrator capabilities to regular users. Implement proper conditional checks based on roles and capabilities.
+    - Pattern 5: Weak capability policy
+  - pattern `session_start|session_set_cookie_params` – Avoid custom session management. Use WordPress's authentication system.
+    - Pattern 6: Custom session management
+  - pattern `(?:global\s+\$[a-zA-Z0-9_]+;.*){3,}` – Excessive global variable usage indicates poor design. Use proper dependency injection or class properties.
+    - Pattern 7: Excessive global state dependency
+  - pattern `wp_set_password\(|password_verify\(|password_hash\(` – Avoid custom authentication. Use WordPress's built-in authentication system.
+    - Pattern 8: Custom user authentication
+  - pattern `register_setting\([^,]+,\s*['"][^'"]+['"](?![^)]*sanitize_callback)` – Settings should enforce data integrity with proper sanitization callbacks.
+    - Pattern 9: Missing sanitization in settings
+  - pattern `update_option\(['"](?!secure_|security_|private_)[^'"]+['"],\s*(?:FALSE|0|'0'|"0")\)` – Security-related configuration should default to secure settings (opt-in for potentially insecure features).
+    - Pattern 10: Insecure defaults
+
+## Suggestions
+- Guidance:
+**WordPress Secure Design Best Practices:**
+
+1. **Secure Architecture Principles:**
+   - Follow the principle of least privilege for all user roles and capabilities
+   - Implement defense in depth with multiple security layers
+   - Use WordPress's built-in APIs for structured data instead of custom tables
+   - Employ object-oriented architecture with proper dependency injection
+   - Follow WordPress coding standards to leverage community security expertise
+
+2. **Capability System Design:**
+   - Design granular capabilities following WordPress naming conventions
+   - Avoid creating omnipotent capabilities that grant excessive access
+   - Use context-aware access systems like post type capabilities
+   - Consider custom capabilities for plugin-specific permissions
+   - Document capability architecture and security implications
+
+3. **Plugin Architecture:**
+   - Separate concerns into appropriate classes and functions
+   - Use hooks judiciously and document security implications
+   - Implement proper validation and sanitization layers
+   - Design APIs with security in mind from the start
+   - Provide secure default configurations
+
+4. **Data Modeling Security:**
+   - Implement appropriate validation constraints on custom post types
+   - Design database schemas with integrity constraints
+   - Use appropriate field types for sensitive data
+   - Implement field-level access control when needed
+   - Consider encryption for sensitive stored data
+
+5. **Error Handling and Logging:**
+   - Design contextual error messages (detailed for admins, general for users)
+   - Implement appropriate logging for security events
+   - Avoid exposing sensitive data in error messages
+   - Design fault-tolerant systems that fail securely
+   - Include appropriate transaction management
+
+## Validation Checks
+- Conditions:
+  - pattern `private\s+\$[a-zA-Z0-9_]+;[^}]*public\s+function\s+__construct\([^\)]*\)` – Using proper dependency injection pattern.
+    - Check 1: Proper dependency injection
+  - pattern `register_setting\([^,]+,\s*[^,]+,\s*\[[^\]]*sanitize_callback[^\]]*\]` – Providing sanitization callbacks for settings.
+    - Check 2: Settings sanitization usage
+  - pattern `add_cap\(['"][a-z_]+[a-z0-9_]+['"]\)` – Following capability naming conventions.
+    - Check 3: Proper capability definition
+  - pattern `class\s+[A-Za-z0-9_]+AccessControl|current_user_can\(` – Using dedicated access control methods.
+    - Check 4: Access control implementation
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, design, architecture, owasp, language:php, framework:wordpress, category:security, subcategory:design, standard:owasp-top10, risk:a04-insecure-design
+## References
+- https://owasp.org/Top10/A04_2021-Insecure_Design/
+- https://developer.wordpress.org/plugins/security/checking-user-capabilities-and-roles/
+- https://developer.wordpress.org/plugins/plugin-basics/plugin-security/

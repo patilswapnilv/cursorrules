@@ -1,0 +1,40 @@
+---
+description: Database schema changes, migrations, and query optimization for WordPress
+globs: *.php, *.install, *.module
+---
+# WordPress Database Standards
+
+Ensures proper database handling in WordPress applications.
+
+## Rule Details
+
+- **Name:** wordpress_database_standards
+
+- **Description:** Enforce WordPress database best practices and standards
+
+## Filters
+- file extension pattern: `\.(php)$`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `mysql_query|mysqli_query|mysql_connect` – Use WordPress $wpdb database API instead of direct MySQL functions
+  - pattern `\$wpdb->query\(['"][^'"]*\$[^'"]*['"]` – Use $wpdb->prepare() with placeholders instead of direct variable interpolation
+  - pattern `register_activation_hook.*\{[^}]*\}` – Ensure activation hooks include proper database schema changes
+  - pattern `\$wpdb->(insert|update|delete)\([^)]*\)(?!.*prepare)` – Consider using $wpdb->prepare() for database operations with user input
+
+## Suggestions
+- Guidance:
+Database Best Practices:
+- Use WordPress $wpdb class for all database operations
+- Always use $wpdb->prepare() with placeholders (%s, %d, %f) for queries
+- Implement proper error handling with $wpdb->last_error
+- Use WordPress table prefix ($wpdb->prefix) for custom tables
+- Follow WordPress database schema conventions
+- Implement proper indexing strategies
+- Use dbDelta() for table creation and updates
+- Consider using WordPress Options API for simple key-value storage
+- Use post meta and user meta for structured data when appropriate
+
+## Metadata
+- Priority: critical
+- Version: 1.1

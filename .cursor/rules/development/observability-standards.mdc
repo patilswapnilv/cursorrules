@@ -1,0 +1,230 @@
+---
+description: Observability standards for logging, metrics, tracing, and monitoring in polyglot systems
+globs: *.ts, *.js, *.py, *.php, *.go, *.java
+alwaysApply: false
+tags:
+  - category:observability
+  - category:monitoring
+  - category:best-practice
+  - standard:logging
+  - standard:metrics
+  - standard:tracing
+---
+# Observability Standards
+
+Enforces best practices for logging, metrics collection, distributed tracing, and monitoring across polyglot systems.
+
+<rule>
+name: observability_standards
+description: Enforce observability best practices including structured logging, metrics collection, and distributed tracing
+filters:
+  - type: file_extension
+    pattern: "\\.(ts|js|py|php|go|java)$"
+  - type: file_path
+    pattern: ".*(service|api|worker|pipeline|handler|controller).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Pattern 1: Unstructured logging
+      - pattern: "console\\.(log|error|warn)\\([^)]*\\+[^)]*\\)|print\\([^)]*\\+[^)]*\\)|logger\\.(info|error|warn)\\([^)]*\\+[^)]*\\)"
+        message: "Use structured logging with JSON format. Include context (request ID, user ID, timestamp) in log entries."
+        
+      # Pattern 2: Missing log levels
+      - pattern: "console\\.log\\(|print\\(|logger\\.(info|debug|error|warn)\\([^)]*\\)"
+        message: "Use appropriate log levels (DEBUG, INFO, WARN, ERROR, FATAL). Avoid generic logging without levels."
+        
+      # Pattern 3: Logging sensitive data
+      - pattern: "(password|secret|token|api[_-]?key|auth[_-]?token|credit[_-]?card|ssn|social[_-]?security)\\s*[:=]\\s*['\"][^'\"]+['\"]|logger\\.(info|debug|error|warn)\\([^)]*(password|secret|token|api[_-]?key)"
+        message: "Never log sensitive data (passwords, tokens, API keys, PII). Redact or exclude sensitive fields from logs."
+        
+      # Pattern 4: Missing request/context IDs
+      - pattern: "(app\\.(get|post|put|delete)|router\\.(get|post|put|delete)|@(Get|Post|Put|Delete)Mapping|@Route)"
+        message: "Include request ID or correlation ID in logs for tracing requests across services. Use middleware to inject context."
+        
+      # Pattern 5: Missing error context
+      - pattern: "catch\\s*\\([^)]*\\)\\s*\\{[^}]*console\\.(log|error)\\([^)]*e[^)]*\\)|except\\s+[^:]+:\\s*print\\([^)]*e[^)]*\\)"
+        message: "Log errors with full context: stack trace, request ID, user context, and error details. Use structured error logging."
+
+  - type: reject
+    conditions:
+      # Reject: Logging in production without levels
+      - pattern: "console\\.log\\(.*\\)|print\\(.*\\)"
+        message: "Avoid console.log/print in production code. Use proper logging libraries with log levels and structured output."
+        
+      # Reject: Hardcoded log destinations
+      - pattern: "logger\\.(info|error|warn|debug)\\(.*\\)\\s*//\\s*(TODO|FIXME|HACK)"
+        message: "Remove debug logging and TODOs before production. Use proper log management and rotation."
+
+  - type: suggest
+    message: |
+      **Observability Best Practices:**
+      
+      **Structured Logging:**
+      - Use JSON format for logs: `{"level": "info", "message": "...", "timestamp": "...", "requestId": "..."}`
+      - Include context in every log: request ID, user ID, service name, timestamp
+      - Use appropriate log levels: DEBUG (development), INFO (normal operations), WARN (warnings), ERROR (errors), FATAL (critical)
+      - Never log sensitive data: passwords, tokens, API keys, PII, credit card numbers
+      - Use correlation IDs to trace requests across services
+      
+      **TypeScript/JavaScript Example:**
+      ```typescript
+      import { Logger } from 'winston';
+      
+      const logger = new Logger({
+        format: winston.format.json(),
+        defaultMeta: { service: 'api' }
+      });
+      
+      logger.info('User created', {
+        requestId: req.id,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
+      ```
+      
+      **Python Example:**
+      ```python
+      import logging
+      import json
+      
+      logger = logging.getLogger(__name__)
+      logger.setLevel(logging.INFO)
+      
+      handler = logging.StreamHandler()
+      handler.setFormatter(logging.Formatter('%(message)s'))
+      logger.addHandler(handler)
+      
+      logger.info(json.dumps({
+        'level': 'info',
+        'message': 'User created',
+        'request_id': request_id,
+        'user_id': user_id,
+        'timestamp': datetime.utcnow().isoformat()
+      }))
+      ```
+      
+      **Metrics Collection:**
+      - Use Prometheus-compatible metrics format
+      - Expose metrics endpoint: `/metrics` (Prometheus) or `/health/metrics`
+      - Track key metrics: request rate, error rate, latency (p50, p95, p99), throughput
+      - Use appropriate metric types: Counter (events), Gauge (current value), Histogram (distribution)
+      - Label metrics with relevant dimensions: service, endpoint, method, status code
+      
+      **TypeScript/JavaScript Example:**
+      ```typescript
+      import { Counter, Histogram } from 'prom-client';
+      
+      const httpRequestDuration = new Histogram({
+        name: 'http_request_duration_seconds',
+        help: 'Duration of HTTP requests in seconds',
+        labelNames: ['method', 'route', 'status_code']
+      });
+      
+      const httpRequestTotal = new Counter({
+        name: 'http_requests_total',
+        help: 'Total number of HTTP requests',
+        labelNames: ['method', 'route', 'status_code']
+      });
+      ```
+      
+      **Python Example:**
+      ```python
+      from prometheus_client import Counter, Histogram
+      
+      http_request_duration = Histogram(
+        'http_request_duration_seconds',
+        'Duration of HTTP requests in seconds',
+        ['method', 'route', 'status_code']
+      )
+      
+      http_request_total = Counter(
+        'http_requests_total',
+        'Total number of HTTP requests',
+        ['method', 'route', 'status_code']
+      )
+      ```
+      
+      **Distributed Tracing:**
+      - Use OpenTelemetry for distributed tracing
+      - Propagate trace context across service boundaries (HTTP headers, message queues)
+      - Create spans for operations: database queries, external API calls, business logic
+      - Include span attributes: service name, operation name, status, error details
+      - Use sampling to control trace volume (100% in dev, lower in production)
+      
+      **TypeScript/JavaScript Example:**
+      ```typescript
+      import { trace, context } from '@opentelemetry/api';
+      
+      const tracer = trace.getTracer('my-service');
+      
+      const span = tracer.startSpan('processOrder');
+      span.setAttribute('order.id', orderId);
+      span.setAttribute('order.amount', amount);
+      
+      try {
+        await processOrder(orderId);
+        span.setStatus({ code: SpanStatusCode.OK });
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+        span.recordException(error);
+        throw error;
+      } finally {
+        span.end();
+      }
+      ```
+      
+      **Python Example:**
+      ```python
+      from opentelemetry import trace
+      
+      tracer = trace.get_tracer(__name__)
+      
+      with tracer.start_as_current_span('process_order') as span:
+        span.set_attribute('order.id', order_id)
+        span.set_attribute('order.amount', amount)
+        
+        try:
+          process_order(order_id)
+          span.set_status(trace.Status(trace.StatusCode.OK))
+        except Exception as e:
+          span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+          span.record_exception(e)
+          raise
+      ```
+      
+      **Alerting and Monitoring:**
+      - Set up alerts for critical metrics: error rate, latency, availability
+      - Use alerting rules: error rate > 1%, latency p95 > 1s, availability < 99.9%
+      - Implement health check endpoints: `/health` (liveness), `/ready` (readiness)
+      - Monitor infrastructure metrics: CPU, memory, disk, network
+      - Track business metrics: user signups, orders, revenue
+      
+      **Health Check Example:**
+      ```typescript
+      app.get('/health', (req, res) => {
+        res.json({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          service: 'api',
+          version: process.env.APP_VERSION
+        });
+      });
+      
+      app.get('/ready', async (req, res) => {
+        const dbHealthy = await checkDatabase();
+        const cacheHealthy = await checkCache();
+        
+        if (dbHealthy && cacheHealthy) {
+          res.json({ status: 'ready' });
+        } else {
+          res.status(503).json({ status: 'not ready' });
+        }
+      });
+      ```
+
+metadata:
+  priority: high
+  version: 1.0.0
+  lastUpdated: 2025-12-05
+</rule>

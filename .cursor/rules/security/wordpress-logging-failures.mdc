@@ -1,0 +1,102 @@
+---
+description: Detect and prevent security logging and monitoring failures in WordPress as defined in OWASP Top 10:2021-A09
+globs: *.php, functions.php
+alwaysApply: false
+---
+# WordPress Security Logging and Monitoring Failures Standards (OWASP A09:2021)
+
+This rule enforces security best practices to prevent logging and monitoring failures in WordPress applications, as defined in OWASP Top 10:2021-A09.
+
+## Rule Details
+
+- **Name:** wordpress_logging_failures
+
+- **Description:** Detect and prevent security logging and monitoring failures in WordPress as defined in OWASP Top 10:2021-A09
+
+## Filters
+- file extension pattern: `\.(php)$`
+- file path pattern: `.*(wp-content|plugins|themes|functions).*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `(delete|update|create|execute|grant|revoke|wp_update_option|wp_delete_option).*function[^}]*\{(?![^}]*(error_log|wp_debug_log|do_action.*log))` – Critical operations should include logging. Implement proper logging for security-relevant actions.
+    - Pattern 1: Missing critical event logging
+  - pattern `@include|@require|@eval|error_reporting\(0\)|ini_set\(['"](display_errors|log_errors)['"],\s*['"]0['"]\)` – Avoid suppressing errors and warnings. Implement proper error handling and logging instead.
+    - Pattern 2: Suppressed error logging
+  - pattern `catch\s*\([^{]*\)\s*\{(?![^}]*error_log|[^}]*wp_debug_log|[^}]*do_action)` – Exceptions should be properly logged, especially in security-critical sections.
+    - Pattern 3: Improper exception handling without logging
+  - pattern `WP_DEBUG\s*=\s*FALSE|WP_DEBUG_LOG\s*=\s*FALSE|define\(['"]WP_DEBUG['"],\s*FALSE\)` – Ensure logging is properly configured and not disabled. Verify log verbosity and retention policies.
+    - Pattern 4: Disabled WordPress debugging
+  - pattern `(login|authenticate|logout|password|wp_login|wp_logout).*function[^}]*\{(?![^}]*(error_log|wp_debug_log|do_action.*log))` – Authentication events should always be logged for security monitoring and auditing.
+    - Pattern 5: Missing authentication event logging
+  - pattern `current_user_can\([^)]*\)(?![^;]*(error_log|wp_debug_log|do_action.*log))` – Consider logging significant access control decisions, especially denials, for security monitoring.
+    - Pattern 6: Failure to log access control decisions
+  - pattern `(wp_handle_upload|wp_delete_file|move_uploaded_file)[^;]*;(?![^;]*(error_log|wp_debug_log|do_action.*log))` – File operations should be logged, especially for security-sensitive files.
+    - Pattern 7: Missing logging in file operations
+  - pattern `(error_log|wp_debug_log|do_action)\([^,)]*,[^,)]*\)` – Log messages should include sufficient context and detail for effective security monitoring.
+    - Pattern 8: Insufficient detail in log messages
+  - pattern `update_option\([^;]*;(?![^;]*(error_log|wp_debug_log|do_action.*log))` – Configuration changes should be logged to maintain an audit trail and detect unauthorized changes.
+    - Pattern 9: Failure to log configuration changes
+  - pattern `add_action\(['"]wp_ajax|add_action\(['"]rest_api_init` – API endpoint access should be logged for security monitoring, especially for sensitive operations.
+    - Pattern 10: Missing logs for API access
+
+## Suggestions
+- Guidance:
+**WordPress Security Logging & Monitoring Best Practices:**
+
+1. **Comprehensive Logging Implementation:**
+   - Use error_log() or wp_debug_log() for logging
+   - Implement proper log levels: error, warning, notice, info, debug
+   - Include context in log messages with relevant identifiers and information
+   - Log security-relevant events consistently across the application
+   - Structure log messages to facilitate automated analysis
+
+2. **Critical Events to Log:**
+   - Authentication events (login attempts, failures, logouts)
+   - Access control decisions (particularly denials)
+   - All administrative actions
+   - Data modification operations on sensitive information
+   - Configuration and settings changes
+   - File operations (uploads, downloads of sensitive content)
+   - API access and usage
+
+3. **Logging Configuration:**
+   - Configure appropriate log retention periods based on security requirements
+   - Implement log rotation to maintain performance
+   - Consider using syslog for centralized logging
+   - Protect log files from unauthorized access and modification
+   - Configure appropriate verbosity for different environments
+
+4. **Monitoring Implementation:**
+   - Define security-relevant log patterns to monitor
+   - Implement log aggregation and analysis
+   - Set up alerts for suspicious activity patterns
+   - Establish response procedures for security events
+   - Consider integration with SIEM solutions
+
+5. **Error Handling:**
+   - Log exceptions with appropriate error levels
+   - Include stack traces in development but not production
+   - Implement custom error handlers that ensure proper logging
+   - Avoid suppressing errors that might indicate security issues
+   - Monitor for patterns in error logs that could indicate attacks
+
+## Validation Checks
+- Conditions:
+  - pattern `error_log\(|wp_debug_log\(|do_action\(['"]log` – Using WordPress logging functions correctly.
+    - Check 1: Proper logger usage
+  - pattern `error_log\([^,]+,\s*[^,]+,\s*\[` – Including context information in log messages.
+    - Check 2: Context in log messages
+  - pattern `WP_DEBUG|WP_DEBUG_LOG|define\(['"]WP_DEBUG['"]` – Configuring logging appropriately.
+    - Check 3: Logging configuration
+  - pattern `catch[^{]*\{[^}]*error_log|catch[^{]*\{[^}]*wp_debug_log|catch[^{]*\{[^}]*do_action` – Properly logging exceptions.
+    - Check 4: Exception logging
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, logging, monitoring, owasp, language:php, framework:wordpress, category:security, subcategory:logging, standard:owasp-top10, risk:a09-logging-monitoring
+## References
+- https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/
+- https://developer.wordpress.org/reference/functions/error_log/
+- https://wordpress.org/support/article/debugging-in-wordpress/

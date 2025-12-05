@@ -1,0 +1,101 @@
+---
+description: Detect and prevent identification and authentication failures in WordPress as defined in OWASP Top 10:2021-A07
+globs: *.php, functions.php, wp-config.php, wp-login.php
+alwaysApply: false
+---
+# WordPress Identification and Authentication Failures Standards (OWASP A07:2021)
+
+This rule enforces security best practices to prevent identification and authentication failures in WordPress applications, as defined in OWASP Top 10:2021-A07.
+
+## Rule Details
+
+- **Name:** wordpress_authentication_failures
+
+- **Description:** Detect and prevent identification and authentication failures in WordPress as defined in OWASP Top 10:2021-A07
+
+## Filters
+- file extension pattern: `\.(php)$`
+- file path pattern: `.*(wp-content|plugins|themes|functions|wp-config|wp-login).*`
+
+## Enforcement Checks
+- Conditions:
+  - pattern `wp_set_password\s*\([^,]+,\s*['"][^'"]+['"]` – Never set plaintext passwords. WordPress handles password hashing internally via wp_hash_password().
+    - Pattern 1: Plaintext password storage
+  - pattern `(authenticate|login|auth).*function[^}]*return\s+(TRUE|true|1)\s*;` – Custom authentication functions should implement proper validation and not return TRUE without checks.
+    - Pattern 2: Custom authentication without proper validation
+  - pattern `==\s*\$password|===\s*\$password|strcmp\(|wp_check_password\([^,]+,[^,]+,\$plainTextPassword` – Avoid direct password comparison. Use WordPress's wp_check_password() function.
+    - Pattern 3: Improper password comparison
+  - pattern `(username|user|pass|password|pwd)\s*=\s*['"][^'"]+['"]` – Hardcoded credentials detected. Store credentials securely outside of code.
+    - Pattern 4: Credentials in code
+  - pattern `wp_verify_nonce\(|wp_create_nonce\(|check_admin_referer\(` – Ensure proper CSRF protection is implemented for all authenticated actions using nonces.
+    - Pattern 5: Missing or weak CSRF protection
+  - pattern `setcookie\(|session_regenerate_id\(false\)|session_regenerate_id\([^\)]*` – Use WordPress's session management. If custom code is required, ensure secure session handling practices.
+    - Pattern 6: Insecure session management
+  - pattern `wp_login|wp_authenticate|login_errors|limit_login_attempts` – Ensure proper account lockout and flood control mechanisms are configured to prevent brute force attacks.
+    - Pattern 7: Missing account lockout protection
+  - pattern `wp_lostpassword|retrieve_password|password_reset|reset.*token` – Verify password reset functionality uses secure tokens with proper expiration and validation.
+    - Pattern 8: Insecure password reset implementation
+  - pattern `two_factor|multi_factor|2fa|totp|authenticator` – Consider implementing multi-factor authentication for sensitive operations or user roles.
+    - Pattern 9: Lack of multi-factor authentication
+  - pattern `\$user->user_login\s*===\s*['"]admin['"]|\$username\s*===\s*['"]admin['"]|wp_create_user\(['"]admin['"]` – Avoid creating default administrator accounts or test users in production code.
+    - Pattern 10: Default or test accounts
+
+## Suggestions
+- Guidance:
+**WordPress Authentication Security Best Practices:**
+
+1. **Password Policies:**
+   - Use WordPress's built-in password hashing (wp_hash_password())
+   - Configure minimum password strength requirements
+   - Consider using plugins like "Force Strong Passwords" or "Password Policy Manager"
+   - Implement password rotation for sensitive roles
+   - Check passwords against known breached password databases
+
+2. **Authentication Infrastructure:**
+   - Use WordPress's core authentication mechanisms rather than custom solutions
+   - Implement proper account lockout after failed login attempts (Limit Login Attempts plugin)
+   - Consider multi-factor authentication (Wordfence, Google Authenticator) for privileged accounts
+   - Implement session timeout for inactivity
+   - Use HTTPS for all authentication traffic
+
+3. **Session Management:**
+   - Use WordPress's session management system rather than PHP's session functions
+   - Configure secure session cookie settings in wp-config.php
+   - Implement proper session regeneration on privilege changes
+   - Consider using security plugins to restrict concurrent sessions
+   - Properly destroy sessions on logout
+
+4. **Account Management:**
+   - Implement proper account provisioning and deprovisioning processes
+   - Use email verification for new account registration
+   - Implement secure password reset mechanisms with limited-time tokens
+   - Apply the principle of least privilege for user roles
+   - Regularly audit user accounts and permissions
+
+5. **Authentication Hardening:**
+   - Monitor for authentication failures and suspicious patterns
+   - Implement IP-based and username-based flood control
+   - Log authentication events for security monitoring
+   - Consider CAPTCHA or reCAPTCHA for login forms
+   - Use OAuth or SAML for single sign-on where appropriate
+
+## Validation Checks
+- Conditions:
+  - pattern `wp_check_password\(|wp_hash_password\(|wp_set_password\(` – Using WordPress's password functions correctly.
+    - Check 1: Proper password handling
+  - pattern `wp_verify_nonce\(|wp_create_nonce\(|check_admin_referer\(` – Form includes CSRF protection nonce.
+    - Check 2: CSRF nonce implementation
+  - pattern `wp_set_current_user\(|is_user_logged_in\(|wp_get_current_user\(` – Using WordPress's user management functions.
+    - Check 3: Proper user session management
+  - pattern `limit_login_attempts|login_lockdown|brute_force` – Implementing user flood protection.
+    - Check 4: User flood control
+
+## Metadata
+- Priority: high
+- Version: 1.1
+- Tags: security, wordpress, authentication, identification, owasp, language:php, framework:wordpress, category:security, subcategory:authentication, standard:owasp-top10, risk:a07-authentication-failures
+## References
+- https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/
+- https://developer.wordpress.org/plugins/security/checking-user-capabilities-and-roles/
+- https://developer.wordpress.org/reference/functions/wp_check_password/
+- https://wordpress.org/plugins/two-factor/

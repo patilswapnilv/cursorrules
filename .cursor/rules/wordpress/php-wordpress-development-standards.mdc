@@ -1,0 +1,87 @@
+---
+description: Standards for PHP and WordPress development
+globs: *.php, functions.php
+---
+# Enhanced PHP and WordPress Development Standards
+
+Ensures adherence to PHP 7.4+ features and WordPress development best practices for improved code quality, security, and maintainability.
+
+<rule>
+name: enhanced_php_wordpress_development_standards
+description: Enforce PHP 7.4+ and WordPress development standards
+filters:
+  - type: file_extension
+    pattern: "\.(php)$"
+  - type: file_path
+    pattern: "wp-content/(plugins|themes)/.*"
+
+actions:
+  - type: enforce
+    conditions:
+      - pattern: "^(?!declare\(strict_types=1\);)"
+        message: "Add 'declare(strict_types=1);' at the beginning of PHP files for type safety."
+
+      - pattern: "class\s+\w+\s*(?!\{[^}]*readonly\s+\$)"
+        message: "Consider using readonly properties where immutability is required for better code safety."
+
+      - pattern: "public\s+function\s+\w+\([^)]*\)\s*(?!:)"
+        message: "Add return type declarations for all methods to enhance type safety."
+
+      - pattern: "extends\s+\w+\s*\{[^}]*public\s+function\s+\w+\([^)]*\)\s*(?!#\[Override\])"
+        message: "Add #[Override] attribute for overridden methods for clear intent."
+
+      - pattern: "\$\w+\s*(?!:)"
+        message: "Use typed properties with proper nullability to improve code readability and prevent errors."
+
+      - pattern: "function\s+\w+\([^)]*\)\s*(?!:)"
+        message: "Add type hints and return types for all functions to leverage PHP's type system."
+
+      - pattern: "new\s+\w+\([^)]*\)\s*(?!;\s*\/\/\s*@inject)"
+        message: "Use proper dependency injection patterns for better testability and modularity."
+
+      - pattern: "extends\s+WP_Widget\s*\{[^}]*form"
+        message: "Implement proper widget form validation in WP_Widget classes for security."
+
+      - pattern: "(?<!\bTRUE\b)\btrue\b|(?<!\bFALSE\b)\bfalse\b|(?<!\bNULL\b)\bnull\b"
+        message: "Use uppercase for TRUE, FALSE, and NULL constants for consistency."
+
+      - pattern: "(?i)\/\/\s[a-z]"
+        message: "Ensure inline comments begin with a capital letter and end with a period for readability."
+
+      - pattern: "\$this->get_option\('\\w+'\)"
+        message: "Use WordPress Options API for configuration management to ensure proper data handling."
+
+  - type: suggest
+    message: |
+      **PHP/WordPress Development Best Practices:**
+      - **File Structure:** Place plugin files in `wp-content/plugins/[plugin_name]/` for organization.
+      - **Plugin Files:** Ensure plugins include main plugin file, uninstall.php, and proper headers.
+      - **Dependencies:** Use register_activation_hook() and register_deactivation_hook() to manage dependencies.
+      - **Forms:** Use WordPress form handling with proper nonce verification and capability checks.
+      - **Caching:** Apply proper transients and object caching for performance optimization.
+      - **Error Handling & Logging:** Implement robust error handling and logging using WordPress's mechanisms.
+      - **Type Safety:** Leverage type safety in functions and throughout your code.
+      - **Dependency Injection:** Follow WordPress dependency injection patterns for better maintainability.
+      - **Security:** Validate all user inputs, use WordPress's security practices like sanitization and escaping.
+      - **Database:** Use WordPress's $wpdb class with prepare() for all database operations.
+      - **Translation:** Use WordPress's __(), _e(), _x() functions for all user-facing strings.
+      - **Hooks:** Use add_action() and add_filter() with proper priority and argument count.
+
+  - type: validate
+    conditions:
+      - pattern: "wp-content/plugins/[^/]+/[^/]+\.php$"
+        message: "Ensure each plugin has a main plugin file with proper headers."
+
+      - pattern: "wp-content/plugins/[^/]+/uninstall\.php$"
+        message: "Ensure plugin has uninstall.php file for proper cleanup."
+
+      - pattern: "wp-content/plugins/[^/]+/includes/\\w+\.php$"
+        message: "Place include files in the includes directory for consistency."
+
+      - pattern: "try\s*\{[^}]*\}\s*catch\s*\([^)]*\)\s*\{\s*\}"
+        message: "Implement proper exception handling in catch blocks for robustness."
+
+metadata:
+  priority: critical
+  version: 1.1
+</rule>

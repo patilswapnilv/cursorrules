@@ -1,0 +1,239 @@
+---
+description: Python 3.11+ data pipeline, ML/AI, and ETL standards for logging, type hints, exception handling, and test coverage
+globs: *.py, requirements.txt, pyproject.toml, setup.py
+alwaysApply: false
+tags:
+  - language:python
+  - category:best-practice
+  - category:testing
+  - subcategory:data-pipeline
+  - subcategory:ml-ai
+---
+# Python Data Pipeline & ML/AI Standards
+
+Enforces best practices for Python 3.11+ development in data pipelines, ETL processes, machine learning, and AI applications, focusing on type safety, logging, exception handling, and test coverage.
+
+<rule>
+name: python_data_ml_standards
+description: Enforce Python best practices for data pipelines, ML/AI, and ETL operations
+filters:
+  - type: file_extension
+    pattern: "\\.py$"
+  - type: file_path
+    pattern: ".*(pipeline|etl|ml|ai|data|model|training).*"
+
+actions:
+  - type: enforce
+    conditions:
+      # Type Hints
+      - pattern: "def\\s+\\w+\\([^)]*\\)\\s*:"
+        message: "All functions should have type hints for parameters and return types. Use typing module or Python 3.10+ syntax."
+      
+      # Exception Handling
+      - pattern: "except\\s*:"
+        message: "Never use bare except clauses. Always specify exception types (e.g., except ValueError, except Exception)."
+      
+      - pattern: "except\\s+Exception\\s+as\\s+\\w+\\s*:\\s*pass"
+        message: "Avoid silently catching all exceptions. Log errors and handle them appropriately."
+      
+      # Logging
+      - pattern: "print\\([^)]*\\)"
+        message: "Use proper logging instead of print statements. Import logging module and use logger.info(), logger.error(), etc."
+      
+      # Data Validation
+      - pattern: "pd\\.read_csv\\([^)]*\\)|pd\\.read_json\\([^)]*\\)"
+        message: "Validate data after reading. Check for null values, data types, and schema compliance."
+      
+      # Resource Management
+      - pattern: "open\\([^)]*\\)(?!.*with)"
+        message: "Always use context managers (with statement) for file operations to ensure proper resource cleanup."
+      
+      # Async/Await
+      - pattern: "async\\s+def\\s+\\w+.*await\\s+time\\.sleep"
+        message: "Use asyncio.sleep() instead of time.sleep() in async functions."
+
+  - type: suggest
+    message: |
+      **Python Data Pipeline & ML/AI Best Practices:**
+      
+      ### Type Hints (Python 3.11+)
+      ```python
+      # ✅ Good - Full type hints
+      from typing import Optional, List, Dict
+      from pandas import DataFrame
+      
+      def process_data(
+        data: DataFrame,
+        columns: List[str],
+        threshold: float = 0.5
+      ) -> Optional[DataFrame]:
+          """Process data with type safety."""
+          if data.empty:
+              return None
+          return data[columns].dropna()
+      
+      # Using Python 3.10+ syntax
+      def process_data(
+        data: DataFrame,
+        columns: list[str],
+        threshold: float = 0.5
+      ) -> DataFrame | None:
+          """Process data with modern type hints."""
+          pass
+      ```
+      
+      ### Logging
+      ```python
+      # ✅ Good - Structured logging
+      import logging
+      from typing import Any
+      
+      logger = logging.getLogger(__name__)
+      
+      def process_pipeline(data: DataFrame) -> DataFrame:
+          logger.info("Starting data pipeline", extra={
+              "row_count": len(data),
+              "columns": list(data.columns)
+          })
+          try:
+              result = transform_data(data)
+              logger.info("Pipeline completed successfully")
+              return result
+          except Exception as e:
+              logger.error("Pipeline failed", exc_info=True, extra={
+                  "error_type": type(e).__name__,
+                  "error_message": str(e)
+              })
+              raise
+      ```
+      
+      ### Exception Handling
+      ```python
+      # ✅ Good - Specific exception handling
+      import pandas as pd
+      from custom_exceptions import DataValidationError
+      
+      def load_data(file_path: str) -> pd.DataFrame:
+          try:
+              data = pd.read_csv(file_path)
+              if data.empty:
+                  raise DataValidationError("File is empty")
+              return data
+          except FileNotFoundError:
+              logger.error(f"File not found: {file_path}")
+              raise
+          except pd.errors.EmptyDataError:
+              logger.error(f"Empty data file: {file_path}")
+              raise DataValidationError("Empty data file")
+          except Exception as e:
+              logger.error(f"Unexpected error loading {file_path}", exc_info=True)
+              raise
+      ```
+      
+      ### Data Pipeline Patterns
+      ```python
+      # ✅ Good - ETL pipeline structure
+      from typing import Protocol
+      
+      class DataPipeline(Protocol):
+          def extract(self) -> pd.DataFrame:
+              """Extract data from source."""
+              ...
+          
+          def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+              """Transform data."""
+              ...
+          
+          def load(self, data: pd.DataFrame) -> None:
+              """Load data to destination."""
+              ...
+      
+      class ETLPipeline:
+          def __init__(self, extractor, transformer, loader):
+              self.extractor = extractor
+              self.transformer = transformer
+              self.loader = loader
+          
+          def run(self) -> None:
+              logger.info("Starting ETL pipeline")
+              data = self.extract()
+              transformed = self.transform(data)
+              self.load(transformed)
+              logger.info("ETL pipeline completed")
+      ```
+      
+      ### ML/AI Best Practices
+      ```python
+      # ✅ Good - Type hints for ML models
+      from sklearn.base import BaseEstimator
+      import numpy as np
+      
+      def train_model(
+          X: np.ndarray,
+          y: np.ndarray,
+          model: BaseEstimator
+      ) -> BaseEstimator:
+          """Train a machine learning model."""
+          logger.info(f"Training {type(model).__name__} on {len(X)} samples")
+          model.fit(X, y)
+          return model
+      
+      def predict(
+          model: BaseEstimator,
+          X: np.ndarray
+      ) -> np.ndarray:
+          """Make predictions with a trained model."""
+          predictions = model.predict(X)
+          logger.info(f"Generated {len(predictions)} predictions")
+          return predictions
+      ```
+      
+      ### Testing
+      ```python
+      # ✅ Good - Type hints in tests
+      import pytest
+      from pandas import DataFrame
+      
+      def test_process_data() -> None:
+          """Test data processing function."""
+          data = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+          result = process_data(data, columns=["col1"])
+          assert isinstance(result, DataFrame)
+          assert len(result) == 3
+      ```
+      
+      ### Resource Management
+      ```python
+      # ✅ Good - Context managers
+      from contextlib import contextmanager
+      
+      @contextmanager
+      def database_connection(connection_string: str):
+          """Context manager for database connections."""
+          conn = create_connection(connection_string)
+          try:
+              yield conn
+          finally:
+              conn.close()
+      
+      # Usage
+      with database_connection("postgresql://...") as conn:
+          data = pd.read_sql("SELECT * FROM table", conn)
+      ```
+      
+      ### Async Operations
+      ```python
+      # ✅ Good - Async data processing
+      import asyncio
+      from typing import List
+      
+      async def process_batch(data: List[DataFrame]) -> List[DataFrame]:
+          """Process multiple dataframes concurrently."""
+          tasks = [process_single(df) for df in data]
+          return await asyncio.gather(*tasks)
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

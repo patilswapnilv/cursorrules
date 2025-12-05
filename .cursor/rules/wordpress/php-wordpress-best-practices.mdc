@@ -1,0 +1,166 @@
+---
+description: PHP & WordPress Development Standards and Best Practices
+globs: *.php, functions.php, style.css, *.theme, composer.json, wp-config.php
+alwaysApply: false
+---
+# Enhanced PHP & WordPress Development Standards
+
+Defines comprehensive coding standards and best practices for PHP and WordPress development, with a focus on modern PHP features, WordPress 6.0+ standards, and modularity.
+
+<rule>
+name: enhanced_php_wordpress_best_practices
+description: Enforce PHP 7.4+ features, WordPress 6.0+ coding standards, and modularity
+filters:
+  - type: file_extension
+    pattern: "\.(php|theme)$"
+  - type: file_path
+    pattern: "wp-content/(plugins|themes)/.*"
+
+actions:
+  - type: enforce
+    conditions:
+      - pattern: "^(?!declare\(strict_types=1\);)"
+        message: "Add 'declare(strict_types=1);' at the beginning of PHP files for type safety."
+
+      - pattern: "(?<!\bTRUE\b)\btrue\b|(?<!\bFALSE\b)\bfalse\b|(?<!\bNULL\b)\bnull\b"
+        message: "Use uppercase for TRUE, FALSE, and NULL constants."
+
+      - pattern: "(?i)\/\/\s[a-z]"
+        message: "Ensure inline comments begin with a capital letter and end with a period."
+
+      - pattern: "class\s+\w+\s*(?!\{[^}]*readonly\s+\$)"
+        message: "Consider using readonly properties where immutability is required."
+
+      - pattern: "public\s+function\s+\w+\([^)]*\)\s*(?!:)"
+        message: "Add return type declarations for all methods to ensure type safety."
+
+      - pattern: "extends\s+\w+\s*\{[^}]*public\s+function\s+\w+\([^)]*\)\s*(?!#\[Override\])"
+        message: "Add #[Override] attribute for overridden methods for clarity."
+
+      - pattern: "\$\w+\s*(?!:)"
+        message: "Use typed properties with proper nullability for better code maintainability."
+
+      - pattern: "function\s+\w+\([^)]*\)\s*(?!:)"
+        message: "Add type hints and return types for all functions to leverage PHP's type system."
+
+      - pattern: "new\s+\w+\([^)]*\)\s*(?!;\s*\/\/\s*@inject)"
+        message: "Use proper dependency injection patterns for better testability and modularity."
+
+      - pattern: "extends\s+WP_Widget\s*\{[^}]*form"
+        message: "Implement proper widget form validation in WP_Widget classes for security."
+
+      - pattern: "function\s+\w+\s*\([^)]*\)\s*\{[^}]*\$this->__\("
+        message: "Use WordPress's __() function for strings that need translation."
+
+      - pattern: "\$this->get_option\('\\w+'\)"
+        message: "Use WordPress Options API for configuration management."
+      
+      - pattern: "array\s*\("
+        message: "Use short array syntax ([]) instead of array() for consistent code style."
+      
+      - pattern: "(?<!\()\s+\(int\)\s+\$"
+        message: "Put a space between the (type) and the $variable in a cast: (int) $mynumber."
+      
+      - pattern: "\n[\t ]+\n"
+        message: "Remove whitespace from empty lines."
+      
+      - pattern: "\s+$"
+        message: "Remove trailing whitespace at the end of lines."
+      
+      - pattern: "^(?!.*\n$)"
+        message: "Ensure files end with a single newline character."
+      
+      - pattern: "if\s*\([^)]*\)\s*\{[^{]*\}\s*else\s*\{"
+        message: "Place the opening brace on the same line as the statement for control structures."
+      
+      - pattern: "\$_GET|\$_POST|\$_REQUEST"
+        message: "Never use superglobals directly; use WordPress sanitization functions."
+      
+      - pattern: "mysql_|mysqli_"
+        message: "Use WordPress's $wpdb database abstraction layer instead of direct MySQL functions."
+      
+      - pattern: "\t+"
+        message: "Use tabs for indentation in WordPress code (WordPress Coding Standards)."
+      
+      - pattern: "function\s+\w+\s*\([^)]*\)\s*\{[^}]*\becho\b"
+        message: "Don't use echo in functions; use return values or WordPress's output functions."
+      
+      - pattern: "(?<!\/\*\*)\s*\*\s*@"
+        message: "Use proper DocBlock formatting for documentation."
+      
+      - pattern: "\bdie\b|\bexit\b"
+        message: "Don't use die() or exit(); use wp_die() instead for proper WordPress error handling."
+      
+      - pattern: "\$post->(get|set)\('[^)]+'\)->getValue\(\)"
+        message: "Use WordPress post meta functions: get_post_meta(), update_post_meta() when possible."
+      
+      - pattern: "\bvar_dump\b|\bprint_r\b|\bdump\b"
+        message: "Don't use debug functions in production code; use error_log() or WP_DEBUG_LOG instead."
+      
+      - pattern: "\bnew\s+DateTime\b"
+        message: "Use WordPress's current_time() or wp_date() instead of PHP's DateTime for WordPress timezone handling."
+
+  - type: suggest
+    message: |
+      **PHP/WordPress Development Best Practices:**
+      
+      ### General Code Structure
+      - **File Structure:** Each PHP file should have the proper structures: <?php tag, namespace declaration (if applicable), use statements, docblock, and implementation.
+      - **Line Length:** Keep lines under 80 characters whenever possible.
+      - **Indentation:** Use tabs for indentation (WordPress Coding Standards).
+      - **Empty Lines:** Use empty lines to separate logical blocks of code, but avoid multiple empty lines.
+      - **File Endings:** All files must end with a single newline character.
+      
+      ### PHP Language Features
+      - **PHP Version:** Use PHP 7.4+ features where appropriate.
+      - **Strict Types:** Use declare(strict_types=1) at the top of files to enforce type safety.
+      - **Type Hints:** Always use parameter and return type hints.
+      - **Named Arguments:** Use named arguments for clarity in complex function calls.
+      - **Attributes:** Use PHP 8 attributes like #[Override] for better code comprehension.
+      - **Match Expressions:** Prefer match over switch for cleaner conditionals.
+      - **Null Coalescing:** Use ?? and ??= operators where appropriate.
+      
+      ### WordPress-Specific Standards
+      - **Hooks API:** Use add_action() and add_filter() with proper priority and argument count.
+      - **Exception Handling:** Use try/catch for exception handling with proper logging.
+      - **Database Layer:** Use WordPress's $wpdb database abstraction layer for all queries.
+      - **Options API:** Use get_option(), update_option(), add_option() for configuration.
+      - **Dependency Injection:** Use proper class structure with dependency injection where applicable.
+      - **Routing:** Use WordPress's rewrite API and query vars for custom routes.
+      - **Forms:** Use WordPress form handling with proper nonce verification.
+      - **Post API:** Follow WordPress post API best practices for loading, creating, and editing posts.
+      - **Plugins:** Use plugin system appropriately with proper activation/deactivation hooks.
+      
+      ### Security Practices
+      - **Input Validation:** Always validate and sanitize user input with sanitize_text_field(), sanitize_email(), etc.
+      - **Output Escaping:** Always escape output with esc_html(), esc_attr(), esc_url(), wp_kses_post().
+      - **CSRF Protection:** Use wp_nonce_field() and wp_verify_nonce() for all forms.
+      - **SQL Injection:** Use $wpdb->prepare() with placeholders for all database queries.
+      - **XSS Prevention:** Use proper escaping functions before outputting variables.
+      - **Capability Checks:** Always check user capabilities with current_user_can() before privileged operations.
+      
+      ### Documentation and Comments
+      - **PHPDoc Blocks:** Document all classes, methods, and properties with proper PHPDoc.
+      - **Function Comments:** Describe parameters, return values, and exceptions.
+      - **Inline Comments:** Use meaningful comments for complex logic.
+      - **Comment Format:** Begin comments with a capital letter and end with a period.
+      - **API Documentation:** Follow WordPress's API documentation standards.
+      
+      ### Performance
+      - **Caching:** Implement proper transients and object caching.
+      - **Database Queries:** Optimize queries with proper indices and use WP_Query when possible.
+      - **Lazy Loading:** Use lazy loading for expensive operations.
+      - **Asset Management:** Properly enqueue scripts and styles with wp_enqueue_script() and wp_enqueue_style().
+      - **Transients:** Use transients for caching expensive operations.
+      
+      ### Testing
+      - **Unit Tests:** Write PHPUnit tests for business logic.
+      - **Integration Tests:** Use WordPress test framework for integration with WordPress subsystems.
+      - **Functional Tests:** Implement functional tests for user interactions.
+      - **Mocking:** Use proper mocking techniques for dependencies.
+      - **Test Coverage:** Aim for high test coverage of critical functionality.
+
+metadata:
+  priority: critical
+  version: 1.1
+</rule>
